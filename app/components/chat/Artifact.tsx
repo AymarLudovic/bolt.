@@ -8,6 +8,7 @@ import { workbenchStore } from '~/lib/stores/workbench';
 import { classNames } from '~/utils/classNames';
 import { cubicEasingFn } from '~/utils/easings';
 import { WORK_DIR } from '~/utils/constants';
+import { SiHeadspace } from 'react-icons/si';
 
 const highlighterOptions = {
   langs: ['shell'],
@@ -87,14 +88,18 @@ export const Artifact = memo(({ messageId }: ArtifactProps) => {
               workbenchStore.showWorkbench.set(!showWorkbench);
             }}
           >
-            <div className="px-5 p-3.5 w-full text-left">
-              <div className="w-full text-bolt-elements-textPrimary font-medium leading-5 text-sm">
+            <div className="px-5 p-1.5 w-full text-left">
+              <div className="w-full text-[#888] font-medium leading-5 flex items-center justify-between text-sm">
+              <div className="flex relative -left-[10px] items-center gap-1 font-semibold">
+              <SiHeadspace></SiHeadspace>
+              <span className='relative -top-[1px] '>Studio</span>
+              </div>
                 {/* Use the dynamic title here */}
                 {dynamicTitle}
               </div>
-              <div className="w-full w-full text-bolt-elements-textSecondary text-xs mt-0.5">
+              {/* <div className="w-full w-full text-bolt-elements-textSecondary text-xs mt-0.5">
                 Click to open Workbench
-              </div>
+              </div> */}
             </div>
           </button>
           {artifact.type !== 'bundled' && <div className="bg-bolt-elements-artifacts-borderColor w-[1px]" />}
@@ -116,14 +121,15 @@ export const Artifact = memo(({ messageId }: ArtifactProps) => {
           </AnimatePresence>
         </div>
         {artifact.type === 'bundled' && (
-          <div className="flex items-center gap-1.5 p-5 bg-bolt-elements-actions-background border-t border-bolt-elements-artifacts-borderColor">
-            <div className={classNames('text-lg', getIconColor(allActionFinished ? 'complete' : 'running'))}>
+          <div className="flex items-center gap-1.5 p-2 bg-[#FAFAFA] border-t border-bolt-elements-artifacts-borderColor">
+            <div className={classNames('text-lg', allActionFinished ? 'complete' : 'running')}>
               {allActionFinished ? (
                 <div className="i-ph:check"></div>
               ) : (
                 <div className="i-svg-spinners:90-ring-with-bg"></div>
               )}
             </div>
+            <div className='i-svg-spinn'></div>
             <div className="text-bolt-elements-textPrimary font-medium leading-5 text-sm">
               {/* This status text remains the same */}
               {allActionFinished
@@ -184,7 +190,7 @@ const actionVariants = {
   visible: { opacity: 1, y: 0 },
 };
 
-export function openArtifactInWorkbench(filePath: any) {
+function openArtifactInWorkbench(filePath: any) {
   if (workbenchStore.currentView.get() !== 'code') {
     workbenchStore.currentView.set('code');
   }
