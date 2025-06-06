@@ -153,7 +153,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
     const [isModelLoading, setIsModelLoading] = useState<string | undefined>('all');
     const [progressAnnotations, setProgressAnnotations] = useState<ProgressAnnotation[]>([]);
     const expoUrl = useStore(expoUrlAtom);
-    const [qrModalOpen, setQrModalOpen] = useState(false
+    const [qrModalOpen, setQrModalOpen] = useState(false);
 
                                                    
     const [userId, setUserId] = useState<string | null>(null);
