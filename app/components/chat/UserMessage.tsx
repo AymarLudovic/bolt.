@@ -29,7 +29,7 @@ export function UserMessage({ content }: UserMessageProps) {
             <div />
           )}
         </div>
-        <div className="flex flex-col gap-4 bg-accent-500/10 backdrop-blur-sm p-3 py-3 w-auto rounded-lg mr-auto">
+        <div className="flex flex-col gap-4 bg-white p-3 py-3 w-auto rounded-lg mr-auto">
           {textContent && <Markdown html>{textContent}</Markdown>}
           {images.map((item, index) => (
             <img
