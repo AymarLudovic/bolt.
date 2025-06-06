@@ -7,6 +7,7 @@ import { themeStore } from '~/lib/stores/theme';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { classNames } from '~/utils/classNames';
 import { Terminal, type TerminalRef } from './Terminal';
+import { TerminalIcon } from 'lucide-react';
 import { createScopedLogger } from '~/utils/logger';
 
 const logger = createScopedLogger('Terminal');
@@ -106,8 +107,8 @@ export const TerminalTabs = memo(() => {
                       )}
                       onClick={() => setActiveTerminal(index)}
                     >
-                      <div className="i-ph:terminal-window-duotone text-lg" />
-                      Bolt Terminal
+                      <TerminalIcon size={18}></TerminalIcon>
+                      <span className='relative -top-[1px]'>Studio Terminal</span>
                     </button>
                   ) : (
                     <React.Fragment>
@@ -123,8 +124,9 @@ export const TerminalTabs = memo(() => {
                         )}
                         onClick={() => setActiveTerminal(index)}
                       >
-                        <div className="i-ph:terminal-window-duotone text-lg" />
-                        Terminal {terminalCount > 1 && index}
+                        <TerminalIcon size={18}></TerminalIcon>
+                        <span className='relative -top-[1px]'>Terminal {terminalCount > 1 && index}</span>
+                        
                       </button>
                     </React.Fragment>
                   )}
