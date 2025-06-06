@@ -1,8 +1,5 @@
-import { useStore } from '@nanostores/react';
 import type { LinksFunction } from '@remix-run/cloudflare';
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from '@remix-run/react';
-import tailwindReset from '@unocss/reset/tailwind-compat.css?url';
-import { themeStore } from './lib/stores/theme';
 import { stripIndents } from './utils/stripIndent';
 import { createHead } from 'remix-island';
 import { useEffect } from 'react';
@@ -11,6 +8,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { ClientOnly } from 'remix-utils/client-only';
 
 import reactToastifyStyles from 'react-toastify/dist/ReactToastify.css?url';
+import tailwindReset from '@unocss/reset/tailwind-compat.css?url';
 import globalStyles from './styles/index.scss?url';
 import xtermStyles from '@xterm/xterm/css/xterm.css?url';
 
@@ -41,18 +39,15 @@ export const links: LinksFunction = () => [
   },
 ];
 
+// Code inline qui applique le thème dès le chargement client
 const inlineThemeCode = stripIndents`
-  setTutorialKitTheme();
-
-  function setTutorialKitTheme() {
+  (function setTheme() {
     let theme = localStorage.getItem('bolt_theme');
-
     if (!theme) {
       theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
-
-    document.querySelector('html')?.setAttribute('data-theme', theme);
-  }
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
 `;
 
 export const Head = createHead(() => (
@@ -66,12 +61,6 @@ export const Head = createHead(() => (
 ));
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const theme = useStore(themeStore);
-
-  useEffect(() => {
-    document.querySelector('html')?.setAttribute('data-theme', theme);
-  }, [theme]);
-
   return (
     <>
       <ClientOnly>{() => <DndProvider backend={HTML5Backend}>{children}</DndProvider>}</ClientOnly>
@@ -81,12 +70,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
+// ✅ Plus d'utilisation de themeStore ici
 import { logStore } from './lib/stores/logs';
 
 export default function App() {
-  const theme = useStore(themeStore);
-
   useEffect(() => {
+    const theme =
+      localStorage.getItem('bolt_theme') ||
+      (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
     logStore.logSystem('Application initialized', {
       theme,
       platform: navigator.platform,
