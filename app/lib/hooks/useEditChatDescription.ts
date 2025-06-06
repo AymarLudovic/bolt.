@@ -1,18 +1,33 @@
+// useEditChatDescription.ts
 import { useStore } from '@nanostores/react';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+// Anciens imports de ~/lib/persistence :
+// import {
+//   chatId as chatIdStore,
+//   db,
+//   description as descriptionStore,
+//   getMessages,
+//   updateChatDescription,
+// } from '~/lib/persistence';
+
+// Nouveaux imports
 import {
-  chatId as chatIdStore,
-  db,
-  description as descriptionStore,
-  getMessages,
-  updateChatDescription,
-} from '~/lib/persistence';
+    chatIdAtom, // L'atome pour l'ID du chat courant
+    descriptionAtom, // L'atome pour la description globale du chat courant
+    // db n'est plus utilisé ici directement
+} from '~/lib/persistence/useChatHistory'; // Source des atomes d'état du chat
+
+import {
+    getMessages as appwriteGetMessages, // Fonction pour récupérer les messages/chat depuis Appwrite
+    updateChatDescription as appwriteUpdateChatDescription, // Fonction pour mettre à jour la description dans Appwrite
+} from '~/lib/persistence/db'; // Source des opérations DB Appwrite
+import { databases as appwriteDatabases } from '~/lib/appwrite'; // Pour vérifier si Appwrite est prêt
 
 interface EditChatDescriptionOptions {
-  initialDescription?: string;
-  customChatId?: string;
-  syncWithGlobalStore?: boolean;
+  initialDescription?: string; // Peut être passé ou lu depuis descriptionAtom
+  customChatId?: string; // ID du chat à modifier, si différent du chat courant global
+  syncWithGlobalStore?: boolean; // Pour mettre à jour descriptionAtom après succès
 }
 
 type EditChatDescriptionHook = {
@@ -25,132 +40,162 @@ type EditChatDescriptionHook = {
   toggleEditMode: () => void;
 };
 
-/**
- * Hook to manage the state and behavior for editing chat descriptions.
- *
- * Offers functions to:
- * - Switch between edit and view modes.
- * - Manage input changes, blur, and form submission events.
- * - Save updates to IndexedDB and optionally to the global application state.
- *
- * @param {Object} options
- * @param {string} options.initialDescription - The current chat description.
- * @param {string} options.customChatId - Optional ID for updating the description via the sidebar.
- * @param {boolean} options.syncWithGlobalStore - Flag to indicate global description store synchronization.
- * @returns {EditChatDescriptionHook} Methods and state for managing description edits.
- */
 export function useEditChatDescription({
-  initialDescription = descriptionStore.get()!,
+  initialDescription: initialDescriptionProp, // Renommé pour éviter conflit avec l'atome
   customChatId,
   syncWithGlobalStore,
 }: EditChatDescriptionOptions): EditChatDescriptionHook {
-  const chatIdFromStore = useStore(chatIdStore);
+  const globalChatIdFromStore = useStore(chatIdAtom);
+  const globalDescriptionFromStore = useStore(descriptionAtom);
+
+  const effectiveInitialDescription = initialDescriptionProp ?? globalDescriptionFromStore ?? '';
+
   const [editing, setEditing] = useState(false);
-  const [currentDescription, setCurrentDescription] = useState(initialDescription);
+  const [currentDescription, setCurrentDescription] = useState(effectiveInitialDescription);
 
-  const [chatId, setChatId] = useState<string>();
+  // Déterminer le chatId à utiliser : customChatId a la priorité, sinon celui du store global
+  const chatIdToUse = customChatId || globalChatIdFromStore;
 
   useEffect(() => {
-    setChatId(customChatId || chatIdFromStore);
-  }, [customChatId, chatIdFromStore]);
-  useEffect(() => {
-    setCurrentDescription(initialDescription);
-  }, [initialDescription]);
+    // Si on n'est pas en mode édition et que la description globale change (et qu'on doit synchroniser)
+    // OU si initialDescriptionProp change, on met à jour l'état local.
+    if (!editing) {
+        setCurrentDescription(initialDescriptionProp ?? globalDescriptionFromStore ?? '');
+    }
+  }, [initialDescriptionProp, globalDescriptionFromStore, editing]);
 
-  const toggleEditMode = useCallback(() => setEditing((prev) => !prev), []);
+
+  const toggleEditMode = useCallback(() => {
+    setEditing((prev) => {
+        if (prev) { // Si on quitte le mode édition
+            // Réinitialiser à la description actuelle (globale ou prop)
+            setCurrentDescription(initialDescriptionProp ?? globalDescriptionFromStore ?? '');
+        }
+        return !prev;
+    });
+  }, [initialDescriptionProp, globalDescriptionFromStore]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setCurrentDescription(e.target.value);
   }, []);
 
   const fetchLatestDescription = useCallback(async () => {
-    if (!db || !chatId) {
-      return initialDescription;
+    if (!appwriteDatabases || !chatIdToUse) { // Vérifier si Appwrite est prêt et si on a un ID
+      return effectiveInitialDescription;
     }
-
     try {
-      const chat = await getMessages(db, chatId);
-      return chat?.description || initialDescription;
+      // appwriteGetMessages prend l'ID du chat (métier ou urlId)
+      const chat = await appwriteGetMessages(chatIdToUse);
+      return chat?.description || effectiveInitialDescription;
     } catch (error) {
-      console.error('Failed to fetch latest description:', error);
-      return initialDescription;
+      console.error('Failed to fetch latest description from Appwrite:', error);
+      return effectiveInitialDescription;
     }
-  }, [db, chatId, initialDescription]);
+  }, [appwriteDatabases, chatIdToUse, effectiveInitialDescription]);
 
   const handleBlur = useCallback(async () => {
-    const latestDescription = await fetchLatestDescription();
-    setCurrentDescription(latestDescription);
-    toggleEditMode();
-  }, [fetchLatestDescription, toggleEditMode]);
+    // Si on quitte le mode édition sans soumettre, réinitialiser la description.
+    if (editing) {
+        const latestDescription = await fetchLatestDescription();
+        setCurrentDescription(latestDescription);
+        setEditing(false); // Quitter le mode édition
+    }
+  }, [editing, fetchLatestDescription, setEditing, setCurrentDescription]);
+
 
   const isValidDescription = useCallback((desc: string): boolean => {
     const trimmedDesc = desc.trim();
+    const actualInitialDesc = initialDescriptionProp ?? globalDescriptionFromStore ?? '';
 
-    if (trimmedDesc === initialDescription) {
-      toggleEditMode();
-      return false; // No change, skip validation
+    if (trimmedDesc === actualInitialDesc && editing) { // Ne pas valider si pas de changement et qu'on quitte le mode
+      // toggleEditMode(); // Déjà géré par handleSubmit ou handleBlur
+      return false; 
     }
 
     const lengthValid = trimmedDesc.length > 0 && trimmedDesc.length <= 100;
-
-    // Allow letters, numbers, spaces, and common punctuation but exclude characters that could cause issues
     const characterValid = /^[a-zA-Z0-9\s\-_.,!?()[\]{}'"]+$/.test(trimmedDesc);
 
     if (!lengthValid) {
       toast.error('Description must be between 1 and 100 characters.');
       return false;
     }
-
     if (!characterValid) {
       toast.error('Description can only contain letters, numbers, spaces, and basic punctuation.');
       return false;
     }
-
     return true;
-  }, []);
+  }, [initialDescriptionProp, globalDescriptionFromStore, editing]);
 
   const handleSubmit = useCallback(
-    async (event: React.FormEvent) => {
-      event.preventDefault();
+    async (event?: React.FormEvent) => { // event est optionnel
+      if (event) event.preventDefault();
 
       if (!isValidDescription(currentDescription)) {
+        // Si la description n'est pas valide (par ex. identique à l'initiale mais on a soumis),
+        // on quitte le mode édition sans rien faire de plus.
+        // La validation elle-même (toast.error) est déjà gérée dans isValidDescription.
+        // On s'assure de réinitialiser la description à l'état "connu" avant de quitter.
+        const latestValidDesc = await fetchLatestDescription();
+        setCurrentDescription(latestValidDesc);
+        setEditing(false);
+        return;
+      }
+
+      if (!appwriteDatabases) {
+        toast.error('Data service (Appwrite) is not available');
+        return;
+      }
+      if (!chatIdToUse) {
+        toast.error('Chat ID is not available to update description');
         return;
       }
 
       try {
-        if (!db) {
-          toast.error('Chat persistence is not available');
-          return;
+        // appwriteUpdateChatDescription prend l'ID du chat et la nouvelle description
+        await appwriteUpdateChatDescription(chatIdToUse, currentDescription);
+
+        if (syncWithGlobalStore && (customChatId ? customChatId === globalChatIdFromStore : true) ) {
+          // Mettre à jour l'atome global seulement si on modifie le chat global
+          // ou si on synchronise et que customChatId correspond au chat global.
+          descriptionAtom.set(currentDescription);
         }
-
-        if (!chatId) {
-          toast.error('Chat Id is not available');
-          return;
-        }
-
-        await updateChatDescription(db, chatId, currentDescription);
-
-        if (syncWithGlobalStore) {
-          descriptionStore.set(currentDescription);
-        }
-
         toast.success('Chat description updated successfully');
       } catch (error) {
-        toast.error('Failed to update chat description: ' + (error as Error).message);
+        toast.error('Failed to update chat description: ' + (error instanceof Error ? error.message : 'Unknown error'));
+        // En cas d'erreur, réinitialiser à la description d'avant la tentative de modif
+        setCurrentDescription(initialDescriptionProp ?? globalDescriptionFromStore ?? '');
+      } finally {
+        setEditing(false);
       }
-
-      toggleEditMode();
     },
-    [currentDescription, db, chatId, initialDescription, customChatId],
+    [
+        currentDescription,
+        isValidDescription,
+        appwriteDatabases,
+        chatIdToUse,
+        syncWithGlobalStore,
+        descriptionAtom,
+        fetchLatestDescription,
+        initialDescriptionProp,
+        globalDescriptionFromStore,
+        customChatId, // Ajouté pour la condition de syncWithGlobalStore
+        globalChatIdFromStore // Ajouté pour la condition de syncWithGlobalStore
+    ]
   );
 
   const handleKeyDown = useCallback(
     async (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Escape') {
-        await handleBlur();
+        e.preventDefault(); // Empêcher d'autres handlers (par ex. fermeture de modale)
+        const latestDescription = await fetchLatestDescription(); // Récupérer la dernière bonne description
+        setCurrentDescription(latestDescription);
+        setEditing(false); // Quitter le mode édition
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        await handleSubmit(); // Soumettre le formulaire
       }
     },
-    [handleBlur],
+    [fetchLatestDescription, handleSubmit], // handleSubmit est déjà un useCallback
   );
 
   return {
