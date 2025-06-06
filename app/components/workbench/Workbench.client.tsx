@@ -8,7 +8,9 @@ import { diffLines, type Change } from 'diff';
 import { ActionRunner } from '~/lib/runtime/action-runner';
 import { getLanguageFromExtension } from '~/utils/getLanguageFromExtension';
 import type { FileHistory } from '~/types/actions';
+import { GithubIcon, ArrowDown } from 'lucide-react';
 import { DiffView } from './DiffView';
+import { Terminal } from 'lucide-react';
 import {
   type OnChangeCallback as OnEditorChange,
   type OnScrollCallback as OnEditorScroll,
@@ -26,8 +28,6 @@ import useViewport from '~/lib/hooks';
 import { PushToGitHubDialog } from '~/components/@settings/tabs/connections/components/PushToGitHubDialog';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { usePreviewStore } from '~/lib/stores/previews';
-import { chatStore } from '~/lib/stores/chat';
-import type { ElementInfo } from './Inspector';
 
 interface WorkspaceProps {
   chatStarted?: boolean;
@@ -37,7 +37,6 @@ interface WorkspaceProps {
     gitUrl?: string;
   };
   updateChatMestaData?: (metadata: any) => void;
-  setSelectedElement?: (element: ElementInfo | null) => void;
 }
 
 const viewTransition = { ease: cubicEasingFn };
@@ -281,7 +280,7 @@ const FileModifiedDropdown = memo(
 );
 
 export const Workbench = memo(
-  ({ chatStarted, isStreaming, actionRunner, metadata, updateChatMestaData, setSelectedElement }: WorkspaceProps) => {
+  ({ chatStarted, isStreaming, actionRunner, metadata, updateChatMestaData }: WorkspaceProps) => {
     renderLogger.trace('Workbench');
 
     const [isSyncing, setIsSyncing] = useState(false);
@@ -297,8 +296,6 @@ export const Workbench = memo(
     const unsavedFiles = useStore(workbenchStore.unsavedFiles);
     const files = useStore(workbenchStore.files);
     const selectedView = useStore(workbenchStore.currentView);
-    const { showChat } = useStore(chatStore);
-    const canHideChat = showWorkbench || !showChat;
 
     const isSmallViewport = useViewport(1024);
 
@@ -375,7 +372,7 @@ export const Workbench = memo(
         >
           <div
             className={classNames(
-              'fixed top-[calc(var(--header-height)+1.2rem)] bottom-6 w-[var(--workbench-inner-width)] z-0 transition-[left,width] duration-200 bolt-ease-cubic-bezier',
+              'fixed top-[calc(var(--header-height)+1.5rem)] bottom-6 w-[var(--workbench-inner-width)] mr-4 z-0 transition-[left,width] duration-200 bolt-ease-cubic-bezier',
               {
                 'w-full': isSmallViewport,
                 'left-0': showWorkbench && isSmallViewport,
@@ -384,18 +381,9 @@ export const Workbench = memo(
               },
             )}
           >
-            <div className="absolute inset-0 px-2 lg:px-4">
-              <div className="h-full flex flex-col bg-bolt-elements-background-depth-2 border border-bolt-elements-borderColor shadow-sm rounded-lg overflow-hidden">
-                <div className="flex items-center px-3 py-2 border-b border-bolt-elements-borderColor gap-1.5">
-                  <button
-                    className={`${showChat ? 'i-ph:sidebar-simple-fill' : 'i-ph:sidebar-simple'} text-lg text-bolt-elements-textSecondary mr-1`}
-                    disabled={!canHideChat || isSmallViewport}
-                    onClick={() => {
-                      if (canHideChat) {
-                        chatStore.setKey('showChat', !showChat);
-                      }
-                    }}
-                  />
+            <div className="absolute inset-0 px-2 lg:px-6">
+              <div className="h-full flex flex-col  border border-bolt-elements-borderColor shadow-sm rounded-lg overflow-hidden">
+                <div className="flex items-center px-3 py-2 border-b border-bolt-elements-borderColor gap-1">
                   <Slider selected={selectedView} options={sliderOptions} setSelected={setSelectedView} />
                   <div className="ml-auto" />
                   {selectedView === 'code' && (
@@ -406,19 +394,18 @@ export const Workbench = memo(
                           workbenchStore.toggleTerminal(!workbenchStore.showTerminal.get());
                         }}
                       >
-                        <div className="i-ph:terminal" />
-                        Toggle Terminal
+                        <Terminal size={18}></Terminal>
                       </PanelHeaderButton>
                       <DropdownMenu.Root>
-                        <DropdownMenu.Trigger className="text-sm flex items-center gap-1 text-bolt-elements-item-contentDefault bg-transparent enabled:hover:text-bolt-elements-item-contentActive rounded-md p-1 enabled:hover:bg-bolt-elements-item-backgroundActive disabled:cursor-not-allowed">
-                          <div className="i-ph:box-arrow-up" />
-                          Sync
+                        <DropdownMenu.Trigger className="text-[15px] flex items-center gap-1 h-[35px] w-[150px] justify-center bg-white border border-[#EEE] enabled:hover:text-bolt-elements-item-contentActive rounded-[12px] p-1 enabled:hover:bg-bolt-elements-item-backgroundActive disabled:cursor-not-allowed">
+                          
+                          <p className='relative -top-[1px]'>Export</p>
                         </DropdownMenu.Trigger>
                         <DropdownMenu.Content
                           className={classNames(
                             'min-w-[240px] z-[250]',
                             'bg-white dark:bg-[#141414]',
-                            'rounded-lg shadow-lg',
+                            'rounded-lg shadow-sm',
                             'border border-gray-200/50 dark:border-gray-800/50',
                             'animate-in fade-in-0 zoom-in-95',
                             'py-1',
@@ -427,6 +414,19 @@ export const Workbench = memo(
                           align="end"
                         >
                           <DropdownMenu.Item
+                            className={classNames(
+                              'cursor-pointer flex items-center  border-[#EEE] w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2  group relative',
+                            )}
+                            onClick={() => {
+                              workbenchStore.downloadZip();
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                             <ArrowDown className='text-sm' color='#888'></ArrowDown>
+                              <span className='underline text-[#888]'>Download Code</span>
+                            </div>
+                          </DropdownMenu.Item>
+                          {/* <DropdownMenu.Item
                             className={classNames(
                               'cursor-pointer flex items-center w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2 rounded-md group relative',
                             )}
@@ -437,18 +437,19 @@ export const Workbench = memo(
                               {isSyncing ? <div className="i-ph:spinner" /> : <div className="i-ph:cloud-arrow-down" />}
                               <span>{isSyncing ? 'Syncing...' : 'Sync Files'}</span>
                             </div>
-                          </DropdownMenu.Item>
-                          <DropdownMenu.Item
+                          </DropdownMenu.Item> */}
+                          {/* <DropdownMenu.Item
                             className={classNames(
                               'cursor-pointer flex items-center w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2 rounded-md group relative',
                             )}
                             onClick={() => setIsPushDialogOpen(true)}
                           >
                             <div className="flex items-center gap-2">
-                              <div className="i-ph:git-branch" />
+                            
+                              <GithubIcon></GithubIcon>
                               Push to GitHub
                             </div>
-                          </DropdownMenu.Item>
+                          </DropdownMenu.Item> */}
                         </DropdownMenu.Content>
                       </DropdownMenu.Root>
                     </div>
@@ -457,9 +458,19 @@ export const Workbench = memo(
                   {selectedView === 'diff' && (
                     <FileModifiedDropdown fileHistory={fileHistory} onSelectFile={handleSelectFile} />
                   )}
+
+                  <button 
+                  className='w-[150px] h-[35px] px-1  rounded-[12px] text-[15px] text-[#888] bg-none flex items-center justify-center'
+                  onClick={() => {
+                    workbenchStore.showWorkbench.set(false);
+                  }}
+                  >
+                    <p className="relative -top-[1px] text-sm">show chat only</p>
+                  </button>
+
                   <IconButton
-                    icon="i-ph:x-circle"
-                    className="-mr-1"
+                    icon="i-ph:x"
+                    className="-mr-1 sr-only h-[27px] w-[27px] bg-[#FAFAFA]"
                     size="xl"
                     onClick={() => {
                       workbenchStore.showWorkbench.set(false);
@@ -489,7 +500,7 @@ export const Workbench = memo(
                     <DiffView fileHistory={fileHistory} setFileHistory={setFileHistory} actionRunner={actionRunner} />
                   </View>
                   <View initial={{ x: '100%' }} animate={{ x: selectedView === 'preview' ? '0%' : '100%' }}>
-                    <Preview setSelectedElement={setSelectedElement} />
+                    <Preview />
                   </View>
                 </div>
               </div>
