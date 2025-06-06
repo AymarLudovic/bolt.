@@ -1,12 +1,24 @@
+// Menu.client.tsx
 import { motion, type Variants } from 'framer-motion';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { Dialog, DialogButton, DialogDescription, DialogRoot, DialogTitle } from '~/components/ui/Dialog';
-import { ThemeSwitch } from '~/components/ui/ThemeSwitch';
 import { ControlPanel } from '~/components/@settings/core/ControlPanel';
 import { SettingsButton } from '~/components/ui/SettingsButton';
 import { Button } from '~/components/ui/Button';
-import { db, deleteById, getAll, chatId, type ChatHistoryItem, useChatHistory } from '~/lib/persistence';
+
+import {
+    chatIdAtom,
+    type ChatHistoryItem,
+    useChatHistory
+} from '~/lib/persistence/useChatHistory';
+
+import {
+    deleteById as appwriteDeleteById,
+    getAll as appwriteGetAll,
+} from '~/lib/persistence/db';
+import { databases as appwriteDatabases, getAppwriteSession } from '~/lib/appwrite';
+
 import { cubicEasingFn } from '~/utils/easings';
 import { HistoryItem } from './HistoryItem';
 import { binDates } from './date-binning';
@@ -17,311 +29,203 @@ import { profileStore } from '~/lib/stores/profile';
 import { SiSafari } from 'react-icons/si';
 
 const menuVariants = {
-  closed: {
-    opacity: 0,
-    visibility: 'hidden',
-    left: '-340px',
-    transition: {
-      duration: 0.2,
-      ease: cubicEasingFn,
-    },
-  },
-  open: {
-    opacity: 1,
-    visibility: 'initial',
-    left: 0,
-    transition: {
-      duration: 0.2,
-      ease: cubicEasingFn,
-    },
-  },
+  closed: { opacity: 0, visibility: 'hidden' as 'hidden', left: '-340px', transition: { duration: 0.2, ease: cubicEasingFn }},
+  open: { opacity: 1, visibility: 'visible' as 'visible', left: 0, transition: { duration: 0.2, ease: cubicEasingFn }},
 } satisfies Variants;
 
-type DialogContent =
+type DialogContentType =
   | { type: 'delete'; item: ChatHistoryItem }
-  | { type: 'bulkDelete'; items: ChatHistoryItem[] }
-  | null;
-
-function CurrentDateTime() {
-  const [dateTime, setDateTime] = useState(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setDateTime(new Date());
-    }, 60000);
-
-    return () => clearInterval(timer);
-  }, []);
-
-  return (
-    <div className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800/50">
-      <div className="h-4 w-4 i-ph:clock opacity-80" />
-      <div className="flex gap-2">
-        <span>{dateTime.toLocaleDateString()}</span>
-        <span>{dateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-      </div>
-    </div>
-  );
-}
+  | { type: 'bulkDelete'; items: ChatHistoryItem[] };
+type DialogState = DialogContentType | null;
 
 export const Menu = () => {
   const { duplicateCurrentChat, exportChat } = useChatHistory();
   const menuRef = useRef<HTMLDivElement>(null);
   const [list, setList] = useState<ChatHistoryItem[]>([]);
   const [open, setOpen] = useState(false);
-  const [dialogContent, setDialogContent] = useState<DialogContent>(null);
+  const [dialogContent, setDialogContent] = useState<DialogState>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const profile = useStore(profileStore);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [isAppwriteLoading, setIsAppwriteLoading] = useState(true);
 
   const { filteredItems: filteredList, handleSearchChange } = useSearchFilter({
     items: list,
     searchFields: ['description'],
   });
 
-  const loadEntries = useCallback(() => {
-    if (db) {
-      getAll(db)
-        .then((list) => list.filter((item) => item.urlId && item.description))
-        .then(setList)
-        .catch((error) => toast.error(error.message));
-    }
-  }, []);
-
-  const deleteChat = useCallback(
-    async (id: string): Promise<void> => {
-      if (!db) {
-        throw new Error('Database not available');
-      }
-
-      // Delete chat snapshot from localStorage
+  const loadEntries = useCallback(async () => {
+    if (appwriteDatabases) {
+      setIsAppwriteLoading(true);
+      console.log('Menu.client: loadEntries - Appwrite DB available, attempting to load.');
       try {
-        const snapshotKey = `snapshot:${id}`;
-        localStorage.removeItem(snapshotKey);
-        console.log('Removed snapshot for chat:', id);
-      } catch (snapshotError) {
-        console.error(`Error deleting snapshot for chat ${id}:`, snapshotError);
-      }
+        await getAppwriteSession();
+        console.log('Menu.client: loadEntries - Appwrite session obtained.');
+        const chatList = await appwriteGetAll(); // Cette fonction vient de db.ts
+        console.log('Menu.client: loadEntries - Raw chatList from appwriteGetAll:', JSON.parse(JSON.stringify(chatList))); // Log глубокой копии
 
-      // Delete the chat from the database
-      await deleteById(db, id);
-      console.log('Successfully deleted chat:', id);
+        if (!Array.isArray(chatList)) {
+            console.error('Menu.client: loadEntries - appwriteGetAll did not return an array!', chatList);
+            setList([]);
+            toast.error('Failed to load chat structure.');
+            return;
+        }
+
+        const itemsBeforeFilter = chatList.length;
+        const filteredChatList = chatList.filter(item => {
+            const hasUrlId = !!item.urlId; // Vérifie si urlId existe et n'est pas une chaîne vide
+            const hasDescription = !!item.description; // Vérifie si description existe et n'est pas une chaîne vide
+            if (!hasUrlId || !hasDescription) {
+                console.warn('Menu.client: loadEntries - Filtering out item due to missing urlId or description:', JSON.parse(JSON.stringify(item)));
+            }
+            return hasUrlId && hasDescription;
+        });
+        const itemsAfterFilter = filteredChatList.length;
+
+        console.log(`Menu.client: loadEntries - Items before filter: ${itemsBeforeFilter}, Items after filter: ${itemsAfterFilter}`);
+        setList(filteredChatList);
+
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load chat history';
+        toast.error(errorMessage);
+        console.error("Menu.client: loadEntries - Error loading entries from Appwrite:", error);
+        setList([]); // Réinitialiser la liste en cas d'erreur
+      } finally {
+        setIsAppwriteLoading(false);
+      }
+    } else {
+        toast.warn("Data service not available. Cannot load chat entries.");
+        console.warn("Menu.client: loadEntries - Appwrite DB not available.");
+        setIsAppwriteLoading(false);
+        setList([]); // Réinitialiser la liste
+    }
+  }, []); // loadEntries ne dépend que de appwriteDatabases qui est stable après init
+
+  // ... (le reste de vos fonctions deleteChat, deleteItem, etc. reste identique pour l'instant)
+  const deleteChat = useCallback(
+    async (itemToDelete: ChatHistoryItem): Promise<void> => {
+      if (!appwriteDatabases) throw new Error('Data service not available');
+      if (!itemToDelete.appwriteDocumentId) {
+          console.error("Cannot delete chat: Appwrite document ID is missing.", itemToDelete);
+          throw new Error("Appwrite document ID missing for chat deletion.");
+      }
+      await appwriteDeleteById(itemToDelete.appwriteDocumentId, itemToDelete.id);
+      console.log('Successfully deleted chat from Appwrite:', itemToDelete.id);
     },
-    [db],
+    [],
   );
 
   const deleteItem = useCallback(
-    (event: React.UIEvent, item: ChatHistoryItem) => {
+    async (event: React.UIEvent, item: ChatHistoryItem) => {
       event.preventDefault();
       event.stopPropagation();
-
-      // Log the delete operation to help debugging
-      console.log('Attempting to delete chat:', { id: item.id, description: item.description });
-
-      deleteChat(item.id)
-        .then(() => {
-          toast.success('Chat deleted successfully', {
-            position: 'bottom-right',
-            autoClose: 3000,
-          });
-
-          // Always refresh the list
-          loadEntries();
-
-          if (chatId.get() === item.id) {
-            // hard page navigation to clear the stores
-            console.log('Navigating away from deleted chat');
-            window.location.pathname = '/';
-          }
-        })
-        .catch((error) => {
-          console.error('Failed to delete chat:', error);
-          toast.error('Failed to delete conversation', {
-            position: 'bottom-right',
-            autoClose: 3000,
-          });
-
-          // Still try to reload entries in case data has changed
-          loadEntries();
-        });
+      try {
+        await deleteChat(item);
+        toast.success('Chat deleted successfully');
+        await loadEntries(); // Recharger après succès
+        if (chatIdAtom.get() === item.id) {
+          window.location.pathname = '/';
+        }
+      } catch (error) {
+        console.error('Failed to delete chat:', error);
+        toast.error('Failed to delete conversation: ' + (error instanceof Error ? error.message : "Unknown error"));
+        await loadEntries(); // Recharger même en cas d'erreur
+      }
     },
     [loadEntries, deleteChat],
   );
 
   const deleteSelectedItems = useCallback(
-    async (itemsToDeleteIds: string[]) => {
-      if (!db || itemsToDeleteIds.length === 0) {
-        console.log('Bulk delete skipped: No DB or no items to delete.');
-        return;
-      }
-
-      console.log(`Starting bulk delete for ${itemsToDeleteIds.length} chats`, itemsToDeleteIds);
-
+    async (itemsToDeleteArg: ChatHistoryItem[]) => {
+      if (!appwriteDatabases || itemsToDeleteArg.length === 0) return;
       let deletedCount = 0;
       const errors: string[] = [];
-      const currentChatId = chatId.get();
+      const currentGlobalChatId = chatIdAtom.get();
       let shouldNavigate = false;
 
-      // Process deletions sequentially using the shared deleteChat logic
-      for (const id of itemsToDeleteIds) {
+      for (const item of itemsToDeleteArg) {
         try {
-          await deleteChat(id);
-          deletedCount++;
-
-          if (id === currentChatId) {
-            shouldNavigate = true;
+          if (!item.appwriteDocumentId) {
+              errors.push(item.id + " (missing doc ID)");
+              continue;
           }
-        } catch (error) {
-          console.error(`Error deleting chat ${id}:`, error);
-          errors.push(id);
-        }
+          await deleteChat(item);
+          deletedCount++;
+          if (item.id === currentGlobalChatId) shouldNavigate = true;
+        } catch (error) { errors.push(item.id); }
       }
-
-      // Show appropriate toast message
-      if (errors.length === 0) {
-        toast.success(`${deletedCount} chat${deletedCount === 1 ? '' : 's'} deleted successfully`);
-      } else {
-        toast.warning(`Deleted ${deletedCount} of ${itemsToDeleteIds.length} chats. ${errors.length} failed.`, {
-          autoClose: 5000,
-        });
-      }
-
-      // Reload the list after all deletions
+      // ... (toast et navigation)
+      if (errors.length === 0) toast.success(`${deletedCount} chat(s) deleted`);
+      else toast.warning(`Deleted ${deletedCount} of ${itemsToDeleteArg.length} chats. ${errors.length} failed.`);
       await loadEntries();
-
-      // Clear selection state
       setSelectedItems([]);
       setSelectionMode(false);
-
-      // Navigate if needed
-      if (shouldNavigate) {
-        console.log('Navigating away from deleted chat');
-        window.location.pathname = '/';
-      }
+      if (shouldNavigate) window.location.pathname = '/';
     },
-    [deleteChat, loadEntries, db],
+    [deleteChat, loadEntries],
   );
 
-  const closeDialog = () => {
-    setDialogContent(null);
-  };
-
-  const toggleSelectionMode = () => {
-    setSelectionMode(!selectionMode);
-
-    if (selectionMode) {
-      // If turning selection mode OFF, clear selection
-      setSelectedItems([]);
-    }
-  };
-
-  const toggleItemSelection = useCallback((id: string) => {
-    setSelectedItems((prev) => {
-      const newSelectedItems = prev.includes(id) ? prev.filter((itemId) => itemId !== id) : [...prev, id];
-      console.log('Selected items updated:', newSelectedItems);
-
-      return newSelectedItems; // Return the new array
-    });
-  }, []); // No dependencies needed
+  const closeDialog = useCallback(() => setDialogContent(null), []);
+  const toggleSelectionMode = useCallback(() => setSelectionMode(prev => { if (prev) setSelectedItems([]); return !prev; }), []);
+  const toggleItemSelection = useCallback((id: string) => setSelectedItems(prev => prev.includes(id) ? prev.filter(itemId => itemId !== id) : [...prev, id]), []);
 
   const handleBulkDeleteClick = useCallback(() => {
-    if (selectedItems.length === 0) {
-      toast.info('Select at least one chat to delete');
-      return;
-    }
-
-    const selectedChats = list.filter((item) => selectedItems.includes(item.id));
-
-    if (selectedChats.length === 0) {
-      toast.error('Could not find selected chats');
-      return;
-    }
-
-    setDialogContent({ type: 'bulkDelete', items: selectedChats });
-  }, [selectedItems, list]); // Keep list dependency
+    if (selectedItems.length === 0) { toast.info('Select chats to delete'); return; }
+    const chats = list.filter(item => selectedItems.includes(item.id));
+    if (chats.length === 0) { toast.error('Selected chats not found'); return; }
+    setDialogContent({ type: 'bulkDelete', items: chats });
+  }, [selectedItems, list]);
 
   const selectAll = useCallback(() => {
-    const allFilteredIds = filteredList.map((item) => item.id);
-    setSelectedItems((prev) => {
-      const allFilteredAreSelected = allFilteredIds.length > 0 && allFilteredIds.every((id) => prev.includes(id));
-
-      if (allFilteredAreSelected) {
-        // Deselect only the filtered items
-        const newSelectedItems = prev.filter((id) => !allFilteredIds.includes(id));
-        console.log('Deselecting all filtered items. New selection:', newSelectedItems);
-
-        return newSelectedItems;
-      } else {
-        // Select all filtered items, adding them to any existing selections
-        const newSelectedItems = [...new Set([...prev, ...allFilteredIds])];
-        console.log('Selecting all filtered items. New selection:', newSelectedItems);
-
-        return newSelectedItems;
-      }
-    });
-  }, [filteredList]); // Depends only on filteredList
+    const ids = filteredList.map(item => item.id);
+    setSelectedItems(prev => ids.length > 0 && ids.every(id => prev.includes(id)) ? prev.filter(id => !ids.includes(id)) : [...new Set([...prev, ...ids])]);
+  }, [filteredList]);
 
   useEffect(() => {
     if (open) {
+      console.log("Menu.client: Menu opened, triggering loadEntries.");
       loadEntries();
     }
   }, [open, loadEntries]);
 
-  // Exit selection mode when sidebar is closed
-  useEffect(() => {
-    if (!open && selectionMode) {
-      /*
-       * Don't clear selection state anymore when sidebar closes
-       * This allows the selection to persist when reopening the sidebar
-       */
-      console.log('Sidebar closed, preserving selection state');
-    }
-  }, [open, selectionMode]);
-
-  useEffect(() => {
+  useEffect(() => { /* ... mousemove effect ... */
     const enterThreshold = 40;
     const exitThreshold = 40;
-
     function onMouseMove(event: MouseEvent) {
-      if (isSettingsOpen) {
-        return;
-      }
-
-      if (event.pageX < enterThreshold) {
-        setOpen(true);
-      }
-
+      if (isSettingsOpen) return;
+      if (event.pageX < enterThreshold) setOpen(true);
       if (menuRef.current && event.clientX > menuRef.current.getBoundingClientRect().right + exitThreshold) {
         setOpen(false);
       }
     }
-
     window.addEventListener('mousemove', onMouseMove);
-
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-    };
+    return () => window.removeEventListener('mousemove', onMouseMove);
   }, [isSettingsOpen]);
 
-  const handleDuplicate = async (id: string) => {
-    await duplicateCurrentChat(id);
-    loadEntries(); // Reload the list after duplication
-  };
+  const handleDuplicate = async (id: string) => { await duplicateCurrentChat(id); await loadEntries(); };
+  const handleSettingsClick = () => setIsSettingsOpen(true);
+  const handleSettingsClose = () => setIsSettingsOpen(false);
 
-  const handleSettingsClick = () => {
-    setIsSettingsOpen(true);
-    setOpen(false);
-  };
+  // ... (JSX reste le même, y compris le loader)
+  // Assurez-vous que HistoryItem et binDates fonctionnent avec la structure de ChatHistoryItem
+  // et que filteredList est bien mise à jour par useSearchFilter.
 
-  const handleSettingsClose = () => {
-    setIsSettingsOpen(false);
-  };
-
-  const setDialogContentWithLogging = useCallback((content: DialogContent) => {
-    console.log('Setting dialog content:', content);
-    setDialogContent(content);
-  }, []);
+  if (isAppwriteLoading && open) {
+      return (
+          <motion.div
+            ref={menuRef}
+            initial="closed"
+            animate="open"
+            variants={menuVariants}
+            style={{ width: '340px' }}
+            className="flex flex-col side-menu fixed top-0 h-full bg-white/50 dark:bg-gray-950/80 backdrop-blur-sm shadow-sm text-sm z-sidebar items-center justify-center"
+          >
+              <div className="i-ph-spinner-gap-bold animate-spin w-8 h-8 text-gray-700 dark:text-gray-300" />
+              <p className="mt-2 text-gray-600 dark:text-gray-400">Loading chats...</p>
+          </motion.div>
+      );
+  }
 
   return (
     <>
@@ -330,92 +234,65 @@ export const Menu = () => {
         initial="closed"
         animate={open ? 'open' : 'closed'}
         variants={menuVariants}
-        style={{ width: '340px', fontFamily: "Funnel Display" }}
+        style={{ width: '340px' }}
         className={classNames(
           'flex selection-accent flex-col side-menu fixed top-0 h-full',
-          'bg-white/50 backdrop-blur-sm',
+          'bg-white/50 backdrop-blur-sm dark:bg-gray-950/80',
           'shadow-sm text-sm',
           isSettingsOpen ? 'z-40' : 'z-sidebar',
         )}
       >
-        <div className="h-12 flex items-center justify-between px-4   dark:border-gray-800/50 ">
-          <div className="text-gray-900 dark:text-white font-medium"></div>
+        {/* Header */}
+        <div className="h-12 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-800/50 ">
+          <div /> {/* Placeholder pour l'alignement */}
           <div className="flex items-center gap-3">
             <span className="font-medium text-sm text-gray-900 dark:text-white truncate">
               {profile?.username || 'Guest User'}
             </span>
             <div className="flex items-center justify-center w-[32px] h-[32px] overflow-hidden bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-500 rounded-full shrink-0">
               {profile?.avatar ? (
-                <img
-                  src={profile.avatar}
-                  alt={profile?.username || 'User'}
-                  className="w-full h-full object-cover"
-                  loading="eager"
-                  decoding="sync"
-                />
+                <img src={profile.avatar} alt={profile?.username || 'User'} className="w-full h-full object-cover" loading="eager" decoding="sync"/>
               ) : (
                 <div className="i-ph:user-fill text-lg" />
               )}
             </div>
           </div>
         </div>
-        
+
+        {/* Contenu principal du menu */}
         <div className="flex-1 flex flex-col h-full w-full overflow-hidden">
+          {/* Section "Start new chat" et recherche */}
           <div className="p-4 space-y-3">
             <div className="flex gap-2">
-              <a
-                href="/"
-                className="flex w-[300px] fixed bottom-10  group items-center gap-x-2 rounded-full bg-black px-7.5 h-[40px] text-sm  text-[#E4E4E4] text-sm justify-center shadow-xs outline-none  transition  hover:bg-black/90"
-
-              >
-                
-                <span className="text-sm relative -top-[2px]">Start new chat</span>
+              <a href="/" className="flex w-full group items-center gap-x-2 rounded-lg bg-black dark:bg-purple-600 px-3 h-[40px] text-sm text-white dark:text-white justify-center shadow-xs outline-none transition hover:bg-black/90 dark:hover:bg-purple-700">
+                <span className="i-ph:plus-circle-bold text-lg"/>
+                <span className="text-sm">Start new chat</span>
               </a>
-              <button
-                onClick={toggleSelectionMode}
-                className={classNames(
-                  'sr-only gap-1 items-center rounded-lg px-3 py-2 transition-colors',
-                  selectionMode
-                    ? 'bg-purple-600 dark:bg-purple-500 text-white border border-purple-700 dark:border-purple-600'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700',
-                )}
-                aria-label={selectionMode ? 'Exit selection mode' : 'Enter selection mode'}
-              >
-                <span className={selectionMode ? 'i-ph:x h-4 w-4' : 'i-ph:check-square h-4 w-4'} />
-              </button>
             </div>
-            <div className="relative justify-start w-full flex items-center gap-2 w-full  relative pl-2 pr-3 py-2 rounded-[13px] focus:outline-none focus:ring-1 focus:ring-purple-500/50 bg-white text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 border border-gray-200 dark:border-gray-800">
-            <SiSafari size={22}></SiSafari>
-              <input
-                className="w-full h-full outline-none placeholder:text-black"
-                type="text"
-                placeholder="Search chats..."
-                onChange={handleSearchChange}
-                aria-label="Search chats"
-                
-              />
+            <div className="relative justify-start w-full flex items-center gap-2 pl-3 pr-3 py-2 rounded-lg focus-within:ring-1 focus-within:ring-purple-500/50 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 border border-gray-200 dark:border-gray-700">
+              <SiSafari size={18} className="text-gray-400 dark:text-gray-500"/>
+              <input className="w-full h-full outline-none bg-transparent placeholder:text-gray-500 dark:placeholder:text-gray-400" type="text" placeholder="Search chats..." onChange={handleSearchChange} aria-label="Search chats"/>
+            </div>
           </div>
-          </div>
+
+          {/* Section "Your Chats" et boutons de sélection */}
           <div className="flex items-center justify-between text-sm px-4 py-2">
             <div className="font-medium text-gray-600 dark:text-gray-400">Your Chats</div>
             {selectionMode && (
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm" onClick={selectAll}>
-                  {selectedItems.length === filteredList.length ? 'Deselect all' : 'Select all'}
+                  {filteredList.length > 0 && selectedItems.length === filteredList.length ? 'Deselect all' : 'Select all'}
                 </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleBulkDeleteClick}
-                  disabled={selectedItems.length === 0}
-                >
+                <Button variant="destructive" size="sm" onClick={handleBulkDeleteClick} disabled={selectedItems.length === 0}>
                   Delete selected
                 </Button>
               </div>
             )}
           </div>
+
+          {/* Liste des chats */}
           <div className="flex-1 overflow-auto px-3 pb-3">
-            {filteredList.length === 0 && (
+            {(filteredList.length === 0 && !isAppwriteLoading) && (
               <div className="px-4 text-gray-500 dark:text-gray-400 text-sm">
                 {list.length === 0 ? 'No previous conversations' : 'No matches found'}
               </div>
@@ -423,7 +300,7 @@ export const Menu = () => {
             <DialogRoot open={dialogContent !== null}>
               {binDates(filteredList).map(({ category, items }) => (
                 <div key={category} className="mt-2 first:mt-0 space-y-1">
-                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400 sticky top-0 z-1 bg-white dark:bg-gray-950 px-4 py-1">
+                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400 sticky top-0 z-10 bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm px-4 py-1">
                     {category}
                   </div>
                   <div className="space-y-0.5 pr-1">
@@ -432,12 +309,7 @@ export const Menu = () => {
                         key={item.id}
                         item={item}
                         exportChat={exportChat}
-                        onDelete={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          console.log('Delete triggered for item:', item);
-                          setDialogContentWithLogging({ type: 'delete', item });
-                        }}
+                        onDelete={(event) => { event.preventDefault(); event.stopPropagation(); setDialogContent({ type: 'delete', item }); }}
                         onDuplicate={() => handleDuplicate(item.id)}
                         selectionMode={selectionMode}
                         isSelected={selectedItems.includes(item.id)}
@@ -447,91 +319,55 @@ export const Menu = () => {
                   </div>
                 </div>
               ))}
-              <Dialog onBackdrop={closeDialog} onClose={closeDialog}>
-                {dialogContent?.type === 'delete' && (
-                  <>
-                    <div className="p-6 bg-white dark:bg-gray-950">
-                      <DialogTitle className="text-gray-900 dark:text-white">Delete Chat?</DialogTitle>
-                      <DialogDescription className="mt-2 text-gray-600 dark:text-gray-400">
-                        <p>
-                          You are about to delete{' '}
-                          <span className="font-medium text-gray-900 dark:text-white">
-                            {dialogContent.item.description}
-                          </span>
-                        </p>
-                        <p className="mt-2">Are you sure you want to delete this chat?</p>
-                      </DialogDescription>
-                    </div>
-                    <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800">
-                      <DialogButton type="secondary" onClick={closeDialog}>
-                        Cancel
-                      </DialogButton>
-                      <DialogButton
-                        type="danger"
-                        onClick={(event) => {
-                          console.log('Dialog delete button clicked for item:', dialogContent.item);
-                          deleteItem(event, dialogContent.item);
-                          closeDialog();
-                        }}
-                      >
-                        Delete
-                      </DialogButton>
-                    </div>
-                  </>
-                )}
-                {dialogContent?.type === 'bulkDelete' && (
-                  <>
-                    <div className="p-6 bg-white dark:bg-gray-950">
-                      <DialogTitle className="text-gray-900 dark:text-white">Delete Selected Chats?</DialogTitle>
-                      <DialogDescription className="mt-2 text-gray-600 dark:text-gray-400">
-                        <p>
-                          You are about to delete {dialogContent.items.length}{' '}
-                          {dialogContent.items.length === 1 ? 'chat' : 'chats'}:
-                        </p>
-                        <div className="mt-2 max-h-32 overflow-auto border border-gray-100 dark:border-gray-800 rounded-md bg-gray-50 dark:bg-gray-900 p-2">
-                          <ul className="list-disc pl-5 space-y-1">
-                            {dialogContent.items.map((item) => (
-                              <li key={item.id} className="text-sm">
-                                <span className="font-medium text-gray-900 dark:text-white">{item.description}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                        <p className="mt-3">Are you sure you want to delete these chats?</p>
-                      </DialogDescription>
-                    </div>
-                    <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800">
-                      <DialogButton type="secondary" onClick={closeDialog}>
-                        Cancel
-                      </DialogButton>
-                      <DialogButton
-                        type="danger"
-                        onClick={() => {
-                          /*
-                           * Pass the current selectedItems to the delete function.
-                           * This captures the state at the moment the user confirms.
-                           */
-                          const itemsToDeleteNow = [...selectedItems];
-                          console.log('Bulk delete confirmed for', itemsToDeleteNow.length, 'items', itemsToDeleteNow);
-                          deleteSelectedItems(itemsToDeleteNow);
-                          closeDialog();
-                        }}
-                      >
-                        Delete
-                      </DialogButton>
-                    </div>
-                  </>
-                )}
-              </Dialog>
+              {dialogContent !== null && (
+                <Dialog onBackdrop={closeDialog} onClose={closeDialog}>
+                  {dialogContent.type === 'delete' && (
+                    <>
+                      <div className="p-6 bg-white dark:bg-gray-950">
+                        <DialogTitle className="text-gray-900 dark:text-white">Delete Chat?</DialogTitle>
+                        <DialogDescription className="mt-2 text-gray-600 dark:text-gray-400">
+                          <p>You are about to delete <span className="font-medium text-gray-900 dark:text-white">{dialogContent.item.description}</span></p>
+                          <p className="mt-2">Are you sure you want to delete this chat?</p>
+                        </DialogDescription>
+                      </div>
+                      <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800">
+                        <DialogButton type="secondary" onClick={closeDialog}>Cancel</DialogButton>
+                        <DialogButton type="danger" onClick={(event) => { deleteItem(event, dialogContent.item); closeDialog(); }}>Delete</DialogButton>
+                      </div>
+                    </>
+                  )}
+                  {dialogContent.type === 'bulkDelete' && (
+                    <>
+                      <div className="p-6 bg-white dark:bg-gray-950">
+                        <DialogTitle className="text-gray-900 dark:text-white">Delete Selected Chats?</DialogTitle>
+                        <DialogDescription className="mt-2 text-gray-600 dark:text-gray-400">
+                          <p>You are about to delete {dialogContent.items.length} {dialogContent.items.length === 1 ? 'chat' : 'chats'}:</p>
+                          <div className="mt-2 max-h-32 overflow-auto border border-gray-100 dark:border-gray-800 rounded-md bg-gray-50 dark:bg-gray-900 p-2">
+                            <ul className="list-disc pl-5 space-y-1">
+                              {dialogContent.items.map((chatItem: ChatHistoryItem) => ( <li key={chatItem.id} className="text-sm"><span className="font-medium text-gray-900 dark:text-white">{chatItem.description}</span></li>))}
+                            </ul>
+                          </div>
+                          <p className="mt-3">Are you sure you want to delete these chats?</p>
+                        </DialogDescription>
+                      </div>
+                      <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800">
+                        <DialogButton type="secondary" onClick={closeDialog}>Cancel</DialogButton>
+                        <DialogButton type="danger" onClick={() => { deleteSelectedItems(dialogContent.items); closeDialog(); }}>Delete</DialogButton>
+                      </div>
+                    </>
+                  )}
+                </Dialog>
+              )}
             </DialogRoot>
           </div>
+
+          {/* Footer */}
           <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-800 px-4 py-3">
             <SettingsButton onClick={handleSettingsClick} />
-            
+            {/* <ThemeSwitch /> */}
           </div>
         </div>
       </motion.div>
-
       <ControlPanel open={isSettingsOpen} onClose={handleSettingsClose} />
     </>
   );
