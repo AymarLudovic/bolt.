@@ -631,7 +631,7 @@ const UpgradeTimer = ({ timeRemaining, isSubscriptionValid }: { timeRemaining: n
           <div className={classNames(styles.Chat, 'flex flex-col flex-grow lg:min-w-[var(--chat-min-width)] h-full')}>
             {!chatStarted && (
               <div id="intro" className="mt-[16vh] max-w-2xl mx-auto text-center px-4 lg:px-0">
-                <h1 className="text-4xl lg:text-8xl font-bold text-bolt-elements-textPrimary mb-4 animate-fade-in">
+                <h1 className="text-4xl lg:text-7xl font-bold text-bolt-elements-textPrimary mb-4 animate-fade-in">
                  Your dreaming app. Build in minutes.
                 </h1>
                
