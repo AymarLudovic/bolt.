@@ -11,7 +11,7 @@
     "email": "maintainers@bolt.diy"
   },
   "scripts": {
-    "deploy": "wrangler pages deploy",
+    "deploy": "wrangler pages deploy --project-name=bolt",
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 remix vite:build",
     "dev": "node pre-start.cjs  && remix vite:dev",
     "test": "vitest --run",
