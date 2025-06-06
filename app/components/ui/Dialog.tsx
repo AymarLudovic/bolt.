@@ -105,12 +105,13 @@ export const Dialog = memo(({ children, className, showCloseButton = true, onClo
     <RadixDialog.Portal>
       <RadixDialog.Overlay asChild>
         <motion.div
-          className={classNames('fixed inset-0 z-[9999] bg-black/70 dark:bg-black/80 backdrop-blur-sm')}
+          className={classNames('fixed inset-0 z-[9999] bg-white/70 dark:bg-white/80 backdrop-blur-sm')}
           initial="closed"
           animate="open"
           exit="closed"
           variants={dialogBackdropVariants}
           onClick={onBackdrop}
+          style={{fontFamily:'Funnel Display'}}
         />
       </RadixDialog.Overlay>
       <RadixDialog.Content asChild>
