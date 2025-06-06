@@ -6,7 +6,7 @@ import { Header } from '~/components/header/Header';
 
 
 export const meta: MetaFunction = () => {
-  return [{ title: 'Bolt' }, { name: 'description', content: 'Talk with Bolt, an AI assistant from StackBlitz' }];
+  return [{ title: 'Studio' }, { name: 'description', content: 'Your dreaming app build in minutes' }];
 };
 
 export const loader = () => json({});
@@ -19,8 +19,8 @@ export const loader = () => json({});
  */
 export default function Index() {
   return (
-    <div className="flex flex-col h-full w-full bg-bolt-elements-background-depth-1">
-    =
+    <div style={{fontFamily: "Funnel Display"}} className="flex flex-col h-full w-full bg-bolt-elements-background-depth-1">
+    
       <Header />
       <ClientOnly fallback={<BaseChat />}>{() => <Chat />}</ClientOnly>
     </div>
