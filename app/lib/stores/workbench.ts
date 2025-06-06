@@ -14,7 +14,7 @@ import fileSaver from 'file-saver';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { path } from '~/utils/path';
 import { extractRelativePath } from '~/utils/diff';
-import { description } from '~/lib/persistence';
+import { descriptionAtom } from '~/lib/persistence/useChatHistory';
 import Cookies from 'js-cookie';
 import { createSampler } from '~/utils/sampler';
 import type { ActionAlert, DeployAlert, SupabaseAlert } from '~/types/actions';
@@ -606,8 +606,8 @@ export class WorkbenchStore {
     const files = this.files.get();
 
     // Get the project name from the description input, or use a default name
-    const projectName = (description.value ?? 'project').toLocaleLowerCase().split(' ').join('_');
-
+    // Accéder à la valeur de l'atome avec .get()
+    const projectName = (descriptionAtom.get() ?? 'project').toLocaleLowerCase().split(' ').join('_');
     // Generate a simple 6-character hash based on the current timestamp
     const timestampHash = Date.now().toString(36).slice(-6);
     const uniqueProjectName = `${projectName}_${timestampHash}`;
