@@ -256,7 +256,7 @@ function InlineInput({ depth, placeholder, initialValue = '', onSubmit, onCancel
 
   return (
     <div
-      className="flex items-center w-full px-2 bg-bolt-elements-background-depth-4 border border-bolt-elements-item-contentAccent py-0.5 text-bolt-elements-textPrimary"
+      className="flex items-center w-full px-2  border border-bolt-elements-item-contentAccent py-0.5 text-bolt-elements-textPrimary"
       style={{ paddingLeft: `${6 + depth * NODE_PADDING_LEFT}px` }}
     >
       <div className="scale-120 shrink-0 i-ph:file-plus text-bolt-elements-textTertiary" />
@@ -491,7 +491,7 @@ function FileContextMenu({
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             className={classNames('relative', {
-              'bg-bolt-elements-background-depth-2 border border-dashed border-bolt-elements-item-contentAccent rounded-md':
+              ' border border-dashed border-bolt-elements-item-contentAccent rounded-md':
                 isDragging,
             })}
           >
@@ -501,7 +501,7 @@ function FileContextMenu({
         <ContextMenu.Portal>
           <ContextMenu.Content
             style={{ zIndex: 998 }}
-            className="border border-bolt-elements-borderColor rounded-md z-context-menu bg-bolt-elements-background-depth-1 dark:bg-bolt-elements-background-depth-2 data-[state=open]:animate-in animate-duration-100 data-[state=open]:fade-in-0 data-[state=open]:zoom-in-98 w-56"
+            className="border border-bolt-elements-borderColor rounded-md z-context-menu  bg-white data-[state=open]:animate-in animate-duration-100 data-[state=open]:fade-in-0 data-[state=open]:zoom-in-98 w-56"
           >
             <ContextMenu.Group className="p-1 border-b-px border-solid border-bolt-elements-borderColor">
               <ContextMenuItem onSelect={() => setIsCreatingFile(true)}>
@@ -597,12 +597,12 @@ function Folder({ folder, collapsed, selected = false, onCopyPath, onCopyRelativ
         className={classNames('group', {
           'bg-transparent text-bolt-elements-item-contentDefault hover:text-bolt-elements-item-contentActive hover:bg-bolt-elements-item-backgroundActive':
             !selected,
-          'bg-bolt-elements-item-backgroundAccent text-bolt-elements-item-contentAccent': selected,
+          ' text-bolt-elements-item-contentAccent': selected,
         })}
         depth={folder.depth}
         iconClasses={classNames({
-          'i-ph:caret-right scale-98': collapsed,
-          'i-ph:caret-down scale-98': !collapsed,
+          'i-ph:caret-right scale-106': collapsed,
+          'i-ph:caret-down scale-106': !collapsed,
         })}
         onClick={onClick}
       >
@@ -692,7 +692,7 @@ function File({
           'bg-bolt-elements-item-backgroundAccent text-bolt-elements-item-contentAccent': selected,
         })}
         depth={depth}
-        iconClasses={classNames('i-ph:file-duotone scale-98', {
+        iconClasses={classNames(' scale-98', {
           'group-hover:text-bolt-elements-item-contentActive': !selected,
         })}
         onClick={onClick}
