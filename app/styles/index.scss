@@ -7,11 +7,28 @@
 @use 'components/editor.scss';
 @use 'components/toast.scss';
 
+body, * {
+  font-family: "Funnel Display" sans-serif;
+  font-optical-sizing: auto;
+  font-weight: normal;
+  font-style: normal;
+}
+
+input {
+  width: 100%;
+  outline: none;
+}
+
+::selection {
+  font-weight: 600;
+  background-color: #e2dbee;
+  color: rgb(0, 0, 0);
+}
+
 html,
 body {
   height: 100%;
   width: 100%;
-  background-color: var(--bolt-elements-bg-depth-1);
 }
 
 :root {
@@ -70,4 +87,7 @@ body {
 
   // Firefox support for inverted colors
   scrollbar-color: color-mix(in srgb, var(--bolt-elements-textPrimary), transparent 50%) transparent;
+}
+img{
+  border-radius: 10px;
 }
