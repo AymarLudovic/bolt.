@@ -14,6 +14,7 @@ import { useSearchFilter } from '~/lib/hooks/useSearchFilter';
 import { classNames } from '~/utils/classNames';
 import { useStore } from '@nanostores/react';
 import { profileStore } from '~/lib/stores/profile';
+import { SiSafari } from 'react-icons/si';
 
 const menuVariants = {
   closed: {
@@ -279,8 +280,8 @@ export const Menu = () => {
   }, [open, selectionMode]);
 
   useEffect(() => {
-    const enterThreshold = 20;
-    const exitThreshold = 20;
+    const enterThreshold = 40;
+    const exitThreshold = 40;
 
     function onMouseMove(event: MouseEvent) {
       if (isSettingsOpen) {
@@ -329,15 +330,15 @@ export const Menu = () => {
         initial="closed"
         animate={open ? 'open' : 'closed'}
         variants={menuVariants}
-        style={{ width: '340px' }}
+        style={{ width: '340px', fontFamily: "Funnel Display" }}
         className={classNames(
-          'flex selection-accent flex-col side-menu fixed top-0 h-full rounded-r-2xl',
-          'bg-white dark:bg-gray-950 border-r border-bolt-elements-borderColor',
+          'flex selection-accent flex-col side-menu fixed top-0 h-full',
+          'bg-white/50 backdrop-blur-sm',
           'shadow-sm text-sm',
           isSettingsOpen ? 'z-40' : 'z-sidebar',
         )}
       >
-        <div className="h-12 flex items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800/50 bg-gray-50/50 dark:bg-gray-900/50 rounded-tr-2xl">
+        <div className="h-12 flex items-center justify-between px-4   dark:border-gray-800/50 ">
           <div className="text-gray-900 dark:text-white font-medium"></div>
           <div className="flex items-center gap-3">
             <span className="font-medium text-sm text-gray-900 dark:text-white truncate">
@@ -358,21 +359,22 @@ export const Menu = () => {
             </div>
           </div>
         </div>
-        <CurrentDateTime />
+        
         <div className="flex-1 flex flex-col h-full w-full overflow-hidden">
           <div className="p-4 space-y-3">
             <div className="flex gap-2">
               <a
                 href="/"
-                className="flex-1 flex gap-2 items-center bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-500/20 rounded-lg px-4 py-2 transition-colors"
+                className="flex w-[300px] fixed bottom-10  group items-center gap-x-2 rounded-full bg-black px-7.5 h-[40px] text-sm  text-[#E4E4E4] text-sm justify-center shadow-xs outline-none  transition  hover:bg-black/90"
+
               >
-                <span className="inline-block i-ph:plus-circle h-4 w-4" />
-                <span className="text-sm font-medium">Start new chat</span>
+                
+                <span className="text-sm relative -top-[2px]">Start new chat</span>
               </a>
               <button
                 onClick={toggleSelectionMode}
                 className={classNames(
-                  'flex gap-1 items-center rounded-lg px-3 py-2 transition-colors',
+                  'sr-only gap-1 items-center rounded-lg px-3 py-2 transition-colors',
                   selectionMode
                     ? 'bg-purple-600 dark:bg-purple-500 text-white border border-purple-700 dark:border-purple-600'
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700',
@@ -382,18 +384,17 @@ export const Menu = () => {
                 <span className={selectionMode ? 'i-ph:x h-4 w-4' : 'i-ph:check-square h-4 w-4'} />
               </button>
             </div>
-            <div className="relative w-full">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                <span className="i-ph:magnifying-glass h-4 w-4 text-gray-400 dark:text-gray-500" />
-              </div>
+            <div className="relative justify-start w-full flex items-center gap-2 w-full  relative pl-2 pr-3 py-2 rounded-[13px] focus:outline-none focus:ring-1 focus:ring-purple-500/50 bg-white text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 border border-gray-200 dark:border-gray-800">
+            <SiSafari size={22}></SiSafari>
               <input
-                className="w-full bg-gray-50 dark:bg-gray-900 relative pl-9 pr-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-500/50 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 border border-gray-200 dark:border-gray-800"
-                type="search"
+                className="w-full h-full outline-none placeholder:text-black"
+                type="text"
                 placeholder="Search chats..."
                 onChange={handleSearchChange}
                 aria-label="Search chats"
+                
               />
-            </div>
+          </div>
           </div>
           <div className="flex items-center justify-between text-sm px-4 py-2">
             <div className="font-medium text-gray-600 dark:text-gray-400">Your Chats</div>
@@ -526,7 +527,7 @@ export const Menu = () => {
           </div>
           <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-800 px-4 py-3">
             <SettingsButton onClick={handleSettingsClick} />
-            <ThemeSwitch />
+            
           </div>
         </div>
       </motion.div>
