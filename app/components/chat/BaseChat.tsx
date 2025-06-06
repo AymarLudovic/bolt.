@@ -348,7 +348,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                   Where ideas begin
                 </h1>
                 <p className="text-md lg:text-xl mb-8 text-bolt-elements-textSecondary animate-fade-in animation-delay-200">
-                  Bring ideas to life in seconds or get help on existing projects.
+                 Your dreaming app. Build in minutes.
                 </p>
               </div>
             )}
@@ -462,7 +462,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
             </StickToBottom>
             <div className="flex flex-col justify-center">
               {!chatStarted && (
-                <div className="flex justify-center gap-2">
+                <div className="sr-only justify-center gap-2">
                   {ImportButtons(importChat)}
                   <GitCloneButton importChat={importChat} />
                 </div>
