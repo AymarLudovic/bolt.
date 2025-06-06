@@ -96,17 +96,14 @@ export default defineConfig((config) => {
     },
     plugins: [
       nodePolyfills({
-        // On laisse le plugin déterminer quels modules polyfiller par défaut,
-        // mais on garde tes configurations pour les globals.
+        include: ['buffer', 'process', 'util', 'stream'],
         globals: {
           Buffer: true,
           process: true,
-          // global: true, // global est souvent moins nécessaire, globalThis est plus standard. À toi de voir si tu en as réellement besoin.
+          global: true,
         },
         protocolImports: true,
-        // On exclut seulement les modules Node.js qui n'ont pas de sens côté client
-        // et pour lesquels on ne veut pas de polyfill (ou qui pourraient causer des problèmes).
-        exclude: ['child_process', 'fs'], // 'path' a été retiré de cette liste d'exclusion
+        exclude: ['child_process', 'fs', 'path'],
       }),
       {
         name: 'buffer-polyfill',
@@ -117,6 +114,7 @@ export default defineConfig((config) => {
               map: null,
             };
           }
+
           return null;
         },
       },
@@ -148,13 +146,6 @@ export default defineConfig((config) => {
         },
       },
     },
-    // Si tu as toujours des problèmes avec `istextorbinary` après avoir corrigé nodePolyfills,
-    // tu pourrais envisager d'ajouter un alias explicite ici, mais ce ne devrait plus être nécessaire.
-    // resolve: {
-    //   alias: {
-    //     'path': 'path-browserify',
-    //   }
-    // }
   };
 });
 
@@ -173,9 +164,11 @@ function chrome129IssuePlugin() {
             res.end(
               '<body><h1>Please use Chrome Canary for testing.</h1><p>Chrome 129 has an issue with JavaScript modules & Vite local development, see <a href="https://github.com/stackblitz/bolt.new/issues/86#issuecomment-2395519258">for more information.</a></p><p><b>Note:</b> This only impacts <u>local development</u>. `pnpm run build` and `pnpm run start` will work fine in this browser.</p></body>',
             );
+
             return;
           }
         }
+
         next();
       });
     },
