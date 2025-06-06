@@ -13,55 +13,57 @@ export default class GoogleProvider extends BaseProvider {
   };
 
   staticModels: ModelInfo[] = [
-    { name: 'gemini-1.5-flash-latest', label: 'Gemini 1.5 Flash', provider: 'Google', maxTokenAllowed: 8192 },
-    {
-      name: 'gemini-2.0-flash-thinking-exp-01-21',
-      label: 'Gemini 2.0 Flash-thinking-exp-01-21',
-      provider: 'Google',
-      maxTokenAllowed: 65536,
-    },
-    { name: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash', provider: 'Google', maxTokenAllowed: 8192 },
-    { name: 'gemini-1.5-flash-002', label: 'Gemini 1.5 Flash-002', provider: 'Google', maxTokenAllowed: 8192 },
-    { name: 'gemini-1.5-flash-8b', label: 'Gemini 1.5 Flash-8b', provider: 'Google', maxTokenAllowed: 8192 },
-    { name: 'gemini-1.5-pro-latest', label: 'Gemini 1.5 Pro', provider: 'Google', maxTokenAllowed: 8192 },
-    { name: 'gemini-1.5-pro-002', label: 'Gemini 1.5 Pro-002', provider: 'Google', maxTokenAllowed: 8192 },
-    { name: 'gemini-exp-1206', label: 'Gemini exp-1206', provider: 'Google', maxTokenAllowed: 8192 },
+    { name: 'gemini-2.5-flash-preview-04-17', label: 'Gemini 2.5 Flash Preview 04-17', provider: 'Google', maxTokenAllowed: 8192 },
+     //{ name: 'gemini-1.5-flash-latest', label: 'Gemini 1.5 Flash', provider: 'Google', maxTokenAllowed: 8192 },
+    // {
+    //    name: 'gemini-2.0-flash-thinking-exp-01-21',
+    //    label: 'Gemini 2.0 Flash-thinking-exp-01-21',
+    //    provider: 'Google',
+    //    maxTokenAllowed: 65536,
+    //  },
+     //{ name: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', provider: 'Google', maxTokenAllowed: 8192 },
+   
+    // { name: 'gemini-1.5-flash-002', label: 'Gemini 1.5 Flash-002', provider: 'Google', maxTokenAllowed: 8192 },
+    // { name: 'gemini-1.5-flash-8b', label: 'Gemini 1.5 Flash-8b', provider: 'Google', maxTokenAllowed: 8192 },
+    // { name: 'gemini-1.5-pro-latest', label: 'Gemini 1.5 Pro', provider: 'Google', maxTokenAllowed: 8192 },
+    // { name: 'gemini-1.5-pro-002', label: 'Gemini 1.5 Pro-002', provider: 'Google', maxTokenAllowed: 8192 },
+    // { name: 'gemini-exp-1206', label: 'Gemini exp-1206', provider: 'Google', maxTokenAllowed: 8192 },
   ];
 
-  async getDynamicModels(
-    apiKeys?: Record<string, string>,
-    settings?: IProviderSetting,
-    serverEnv?: Record<string, string>,
-  ): Promise<ModelInfo[]> {
-    const { apiKey } = this.getProviderBaseUrlAndKey({
-      apiKeys,
-      providerSettings: settings,
-      serverEnv: serverEnv as any,
-      defaultBaseUrlKey: '',
-      defaultApiTokenKey: 'GOOGLE_GENERATIVE_AI_API_KEY',
-    });
+  // async getDynamicModels(
+  //   apiKeys?: Record<string, string>,
+  //   settings?: IProviderSetting,
+  //   serverEnv?: Record<string, string>,
+  // ): Promise<ModelInfo[]> {
+  //   const { apiKey } = this.getProviderBaseUrlAndKey({
+  //     apiKeys,
+  //     providerSettings: settings,
+  //     serverEnv: serverEnv as any,
+  //     defaultBaseUrlKey: '',
+  //     defaultApiTokenKey: 'GOOGLE_GENERATIVE_AI_API_KEY',
+  //   });
 
-    if (!apiKey) {
-      throw `Missing Api Key configuration for ${this.name} provider`;
-    }
+  //   if (!apiKey) {
+  //     throw `Missing Api Key configuration for ${this.name} provider`;
+  //   }
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`, {
-      headers: {
-        ['Content-Type']: 'application/json',
-      },
-    });
+  //   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`, {
+  //     headers: {
+  //       ['Content-Type']: 'application/json',
+  //     },
+  //   });
 
-    const res = (await response.json()) as any;
+  //   const res = (await response.json()) as any;
 
-    const data = res.models.filter((model: any) => model.outputTokenLimit > 8000);
+  //   const data = res.models.filter((model: any) => model.outputTokenLimit > 8000);
 
-    return data.map((m: any) => ({
-      name: m.name.replace('models/', ''),
-      label: `${m.displayName} - context ${Math.floor((m.inputTokenLimit + m.outputTokenLimit) / 1000) + 'k'}`,
-      provider: this.name,
-      maxTokenAllowed: m.inputTokenLimit + m.outputTokenLimit || 8000,
-    }));
-  }
+  //   return data.map((m: any) => ({
+  //     name: m.name.replace('models/', ''),
+  //     label: `${m.displayName} - context ${Math.floor((m.inputTokenLimit + m.outputTokenLimit) / 1000) + 'k'}`,
+  //     provider: this.name,
+  //     maxTokenAllowed: m.inputTokenLimit + m.outputTokenLimit || 8000,
+  //   }));
+  // }
 
   getModelInstance(options: {
     model: string;
