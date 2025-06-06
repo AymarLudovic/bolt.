@@ -5,71 +5,31 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { optimizeCssModules } from 'vite-plugin-optimize-css-modules';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import * as dotenv from 'dotenv';
-import { execSync } from 'child_process';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 
 dotenv.config();
 
-// Get detailed git info with fallbacks
-const getGitInfo = () => {
-  try {
-    return {
-      commitHash: execSync('git rev-parse --short HEAD').toString().trim(),
-      branch: execSync('git rev-parse --abbrev-ref HEAD').toString().trim(),
-      commitTime: execSync('git log -1 --format=%cd').toString().trim(),
-      author: execSync('git log -1 --format=%an').toString().trim(),
-      email: execSync('git log -1 --format=%ae').toString().trim(),
-      remoteUrl: execSync('git config --get remote.origin.url').toString().trim(),
-      repoName: execSync('git config --get remote.origin.url')
-        .toString()
-        .trim()
-        .replace(/^.*github.com[:/]/, '')
-        .replace(/\.git$/, ''),
-    };
-  } catch {
-    return {
-      commitHash: 'no-git-info',
-      branch: 'unknown',
-      commitTime: 'unknown',
-      author: 'unknown',
-      email: 'unknown',
-      remoteUrl: 'unknown',
-      repoName: 'unknown',
-    };
-  }
+const isCloudflare = process.env.CF_PAGES === '1';
+
+// Safe fallback data
+const gitInfo = {
+  commitHash: 'n/a',
+  branch: 'main',
+  commitTime: new Date().toISOString(),
+  author: 'unknown',
+  email: 'unknown',
+  remoteUrl: 'n/a',
+  repoName: 'bolt.diy',
 };
 
-// Read package.json with detailed dependency info
-const getPackageJson = () => {
-  try {
-    const pkgPath = join(process.cwd(), 'package.json');
-    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
-
-    return {
-      name: pkg.name,
-      description: pkg.description,
-      license: pkg.license,
-      dependencies: pkg.dependencies || {},
-      devDependencies: pkg.devDependencies || {},
-      peerDependencies: pkg.peerDependencies || {},
-      optionalDependencies: pkg.optionalDependencies || {},
-    };
-  } catch {
-    return {
-      name: 'bolt.diy',
-      description: 'A DIY LLM interface',
-      license: 'MIT',
-      dependencies: {},
-      devDependencies: {},
-      peerDependencies: {},
-      optionalDependencies: {},
-    };
-  }
+const pkg = {
+  name: 'bolt.diy',
+  description: 'A DIY LLM interface',
+  license: 'MIT',
+  dependencies: {},
+  devDependencies: {},
+  peerDependencies: {},
+  optionalDependencies: {},
 };
-
-const pkg = getPackageJson();
-const gitInfo = getGitInfo();
 
 export default defineConfig((config) => {
   return {
@@ -114,7 +74,6 @@ export default defineConfig((config) => {
               map: null,
             };
           }
-
           return null;
         },
       },
@@ -164,7 +123,6 @@ function chrome129IssuePlugin() {
             res.end(
               '<body><h1>Please use Chrome Canary for testing.</h1><p>Chrome 129 has an issue with JavaScript modules & Vite local development, see <a href="https://github.com/stackblitz/bolt.new/issues/86#issuecomment-2395519258">for more information.</a></p><p><b>Note:</b> This only impacts <u>local development</u>. `pnpm run build` and `pnpm run start` will work fine in this browser.</p></body>',
             );
-
             return;
           }
         }
