@@ -264,7 +264,7 @@ export const ModelSelector = ({
                   type="text"
                   value={providerSearchQuery}
                   onChange={(e) => setProviderSearchQuery(e.target.value)}
-                  placeholder="Search providers..."
+                  placeholder="Search providers...."
                   className={classNames(
                     'w-full pl-2 py-1.5 rounded-md text-sm',
                     'bg-bolt-elements-background-depth-2 border border-bolt-elements-borderColor',
