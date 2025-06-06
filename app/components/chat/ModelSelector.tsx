@@ -149,10 +149,10 @@ export const ModelSelector = ({
           if (setProvider) {
             setProvider(selectedProvider);
 
-            const firstModel = modelList.find((m) => m.provider === selectedProvider.name);
-
-            if (firstModel && setModel) {
-              setModel(firstModel.name);
+            // Lorsque le fournisseur change, on veut sélectionner le premier modèle de ce fournisseur
+            const firstModelForNewProvider = modelList.find((m) => m.provider === selectedProvider.name);
+            if (firstModelForNewProvider && setModel) {
+              setModel(firstModelForNewProvider.name);
             }
           }
 
@@ -187,22 +187,44 @@ export const ModelSelector = ({
     }
   }, [focusedProviderIndex]);
 
+  // **Nouveau useEffect pour la sélection automatique du modèle**
+  useEffect(() => {
+    // Ne pas tenter de sélectionner si aucun modèle n'est disponible ou si le chargement est en cours
+    if (modelLoading === 'all' || modelLoading === provider?.name || filteredModels.length === 0) {
+      return;
+    }
+
+    // Vérifier si le modèle actuellement sélectionné est toujours valide dans la liste filtrée
+    const isCurrentModelValid = model && filteredModels.some((m) => m.name === model);
+
+    // Si aucun modèle n'est sélectionné OU si le modèle sélectionné n'est plus valide
+    // (par exemple, suite à un changement de fournisseur ou de recherche)
+    // ALORS, sélectionner le premier modèle de la liste filtrée
+    if (!model || !isCurrentModelValid) {
+      setModel?.(filteredModels[0].name);
+    }
+  }, [provider, modelList, model, setModel, filteredModels, modelLoading]); // Dépendances importantes
+
   useEffect(() => {
     if (providerList.length === 0) {
       return;
     }
 
-    if (provider && !providerList.some((p) => p.name === provider.name)) {
+    // Si aucun fournisseur n'est sélectionné ou si le fournisseur sélectionné n'est plus dans la liste
+    if (!provider || !providerList.some((p) => p.name === provider.name)) {
       const firstEnabledProvider = providerList[0];
       setProvider?.(firstEnabledProvider);
 
-      const firstModel = modelList.find((m) => m.provider === firstEnabledProvider.name);
-
-      if (firstModel) {
-        setModel?.(firstModel.name);
-      }
+      // La sélection du premier modèle pour ce fournisseur sera gérée par le useEffect ci-dessus
+      // qui dépend de `provider` et `filteredModels`.
+      // Donc, nous pouvons supprimer la logique de sélection de modèle ici pour éviter la duplication.
+      // const firstModel = modelList.find((m) => m.provider === firstEnabledProvider.name);
+      // if (firstModel) {
+      //   setModel?.(firstModel.name);
+      // }
     }
   }, [providerList, provider, setProvider, modelList, setModel]);
+
 
   if (providerList.length === 0) {
     return (
@@ -264,7 +286,7 @@ export const ModelSelector = ({
                   type="text"
                   value={providerSearchQuery}
                   onChange={(e) => setProviderSearchQuery(e.target.value)}
-                  placeholder="Search providers...."
+                  placeholder="Search providers..."
                   className={classNames(
                     'w-full pl-2 py-1.5 rounded-md text-sm',
                     'bg-bolt-elements-background-depth-2 border border-bolt-elements-borderColor',
@@ -323,11 +345,11 @@ export const ModelSelector = ({
                       if (setProvider) {
                         setProvider(providerOption);
 
-                        const firstModel = modelList.find((m) => m.provider === providerOption.name);
-
-                        if (firstModel && setModel) {
-                          setModel(firstModel.name);
-                        }
+                        // La sélection du premier modèle sera gérée par le useEffect dédié
+                        // const firstModel = modelList.find((m) => m.provider === providerOption.name);
+                        // if (firstModel && setModel) {
+                        //   setModel(firstModel.name);
+                        // }
                       }
 
                       setIsProviderDropdownOpen(false);
@@ -433,7 +455,7 @@ export const ModelSelector = ({
                 filteredModels.map((modelOption, index) => (
                   <div
                     ref={(el) => (modelOptionsRef.current[index] = el)}
-                    key={index} // Consider using modelOption.name if unique
+                    key={modelOption.name} // Utilisez modelOption.name comme clé si c'est unique, sinon gardez index
                     role="option"
                     aria-selected={model === modelOption.name}
                     className={classNames(
