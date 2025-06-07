@@ -2,6 +2,8 @@ import ignore from 'ignore';
 import type { ProviderInfo } from '~/types/model';
 import type { Template } from '~/types/template';
 import { STARTER_TEMPLATES } from './constants';
+// --- AJOUT ---
+import { selectedTemplateNameAtom } from '~/lib/stores/workbench'; // Ajustez le chemin si nécessaire
 
 const starterTemplateSelectionPrompt = (templates: Template[]) => `
 You are an experienced developer who helps people choose the best starter template for their projects, Vite is preferred.
@@ -58,14 +60,13 @@ Instructions:
 5. If no perfect match exists, recommend the closest option
 
 Important: Provide only the selection tags in your response, no additional text.
-MOST IMPORTANT: YOU DONT HAVE TIME TO THINK JUST START RESPONDING BASED ON HUNCH 
+MOST IMPORTANT: YOU DONT HAVE TIME TO THINK JUST START RESPONDING BASED ON HUNCH
 `;
 
 const templates: Template[] = STARTER_TEMPLATES.filter((t) => !t.name.includes('shadcn'));
 
 const parseSelectedTemplate = (llmOutput: string): { template: string; title: string } | null => {
   try {
-    // Extract content between <templateName> tags
     const templateNameMatch = llmOutput.match(/<templateName>(.*?)<\/templateName>/);
     const titleMatch = llmOutput.match(/<title>(.*?)<\/title>/);
 
@@ -93,16 +94,21 @@ export const selectStarterTemplate = async (options: { message: string; model: s
     body: JSON.stringify(requestBody),
   });
   const respJson: { text: string } = await response.json();
-  console.log(respJson);
+  console.log('LLM Response for template selection:', respJson); // Votre console.log original
 
   const { text } = respJson;
   const selectedTemplate = parseSelectedTemplate(text);
 
   if (selectedTemplate) {
+    // --- MODIFICATION ---
+    selectedTemplateNameAtom.set(selectedTemplate.template);
+    // --- FIN MODIFICATION ---
     return selectedTemplate;
   } else {
     console.log('No template selected, using blank template');
-
+    // --- MODIFICATION ---
+    selectedTemplateNameAtom.set('blank'); // Ou null, selon votre préférence
+    // --- FIN MODIFICATION ---
     return {
       template: 'blank',
       title: '',
@@ -112,16 +118,11 @@ export const selectStarterTemplate = async (options: { message: string; model: s
 
 const getGitHubRepoContent = async (repoName: string): Promise<{ name: string; path: string; content: string }[]> => {
   try {
-    // Instead of directly fetching from GitHub, use our own API endpoint as a proxy
     const response = await fetch(`/api/github-template?repo=${encodeURIComponent(repoName)}`);
-
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-
-    // Our API will return the files in the format we need
     const files = (await response.json()) as any;
-
     return files;
   } catch (error) {
     console.error('Error fetching release contents:', error);
@@ -141,43 +142,21 @@ export async function getTemplates(templateName: string, title?: string) {
 
   let filteredFiles = files;
 
-  /*
-   * ignoring common unwanted files
-   * exclude    .git
-   */
   filteredFiles = filteredFiles.filter((x) => x.path.startsWith('.git') == false);
-
-  /*
-   * exclude    lock files
-   * WE NOW INCLUDE LOCK FILES FOR IMPROVED INSTALL TIMES
-   */
-  {
-    /*
-     *const comminLockFiles = ['package-lock.json', 'yarn.lock', 'pnpm-lock.yaml'];
-     *filteredFiles = filteredFiles.filter((x) => comminLockFiles.includes(x.name) == false);
-     */
-  }
-
-  // exclude    .bolt
   filteredFiles = filteredFiles.filter((x) => x.path.startsWith('.bolt') == false);
 
-  // check for ignore file in .bolt folder
   const templateIgnoreFile = files.find((x) => x.path.startsWith('.bolt') && x.name == 'ignore');
-
   const filesToImport = {
     files: filteredFiles,
     ignoreFile: [] as typeof filteredFiles,
   };
 
   if (templateIgnoreFile) {
-    // redacting files specified in ignore file
     const ignorepatterns = templateIgnoreFile.content.split('\n').map((x) => x.trim());
     const ig = ignore().add(ignorepatterns);
-
-    // filteredFiles = filteredFiles.filter(x => !ig.ignores(x.path))
     const ignoredFiles = filteredFiles.filter((x) => ig.ignores(x.path));
-
-    filesToImport.files = filteredFiles;
+    // filesToImport.files = filteredFiles; // Devrait être déjà filtré avant ou ici
+    filesToImport.files = filteredFiles.filter(x => !ig.ignores(x.path)); // Assurer que les fichiers ignorés ne sont pas dans .files
     filesToImport.ignoreFile = ignoredFiles;
   }
 
