@@ -1,4 +1,4 @@
-// db.ts
+// app/lib/persistence/db.ts
 import type { Message } from 'ai';
 import { createScopedLogger } from '~/utils/logger';
 import type { ChatHistoryItem } from './useChatHistory';
@@ -10,8 +10,8 @@ import {
   VITE_APPWRITE_DATABASE_ID,
   COLLECTION_ID_CHATS,
   COLLECTION_ID_SNAPSHOTS,
-  getAppwriteSession, // Importé pour s'assurer qu'une session existe
-} from '~/lib/appwrite'; // Ajustez le chemin
+  getAppwriteSession,
+} from '~/lib/appwrite';
 
 export interface IChatMetadata {
   gitUrl: string;
@@ -19,67 +19,58 @@ export interface IChatMetadata {
   netlifySiteId?: string;
 }
 
-const logger = createScopedLogger('ChatHistoryAppwrite');
+const logger = createScopedLogger('ChatHistoryAppwriteDB'); // Nom de logger légèrement différent pour clarté
 
-// Helper pour mapper un document Appwrite à ChatHistoryItem
-// db.ts
-// ...
-
-// Helper pour mapper un document Appwrite à ChatHistoryItem
 function mapDocumentToChatHistoryItem(doc: any): ChatHistoryItem {
-  if (!doc || !doc.chatId) {
-    logger.error("db.ts: mapDocumentToChatHistoryItem - Document or doc.chatId is missing", doc);
-    // Il est préférable de ne pas retourner d'item invalide, ou de lancer une erreur qui sera attrapée
-    // Pour l'instant, on pourrait retourner un objet partiel si l'ID existe,
-    // mais cela pourrait causer des problèmes en aval. Mieux vaut filtrer plus tard ou lancer une erreur.
-    // throw new Error("Invalid document structure from Appwrite for chat item.");
-    // Ou, si on veut quand même essayer de le traiter mais qu'il sera probablement filtré :
+  if (!doc || !doc.chatId || !doc.$id || typeof doc.timestamp === 'undefined') {
+    logger.error("db.ts: mapDocumentToChatHistoryItem - Document invalide ou champs essentiels manquants", JSON.stringify(doc).substring(0,300));
     return {
-        id: doc.chatId || 'unknown-id-' + Date.now(),
-        appwriteDocumentId: doc.$id || 'unknown-appwrite-id',
-        urlId: doc.urlId || undefined, // undefined si null/vide
-        description: 'Untitled Chat (data error)', // Placeholder clair
+        id: doc?.chatId || `error-id-${Date.now()}`,
+        appwriteDocumentId: doc?.$id || 'error-appwrite-id',
+        urlId: undefined,
+        description: 'Error: Invalid chat data from DB',
         messages: [],
         timestamp: new Date().toISOString(),
-        metadata: undefined
-    } as ChatHistoryItem; // Assertion de type si on retourne un objet partiel mais conforme
+        metadata: undefined,
+    } as ChatHistoryItem;
   }
+
   try {
     const messages = JSON.parse(doc.messages || '[]');
     const metadata = doc.metadata ? JSON.parse(doc.metadata) : undefined;
 
-    // FOURNIR UNE DESCRIPTION PAR DÉFAUT SI CELLE D'APPWRITE EST NULL OU VIDE
     let descriptionToUse = doc.description;
-    if (!descriptionToUse?.trim()) { // Si null, undefined, ou chaîne vide après trim
-        // Utiliser une partie de l'ID du chat ou une date comme fallback
-        descriptionToUse = `Chat ${doc.chatId.substring(0, 8)} - ${new Date(doc.timestamp || Date.now()).toLocaleDateString()}`;
-        logger.warn(`db.ts: mapDocumentToChatHistoryItem - Document ${doc.$id} (chatId: ${doc.chatId}) has null/empty description. Using default: "${descriptionToUse}"`);
+    if (descriptionToUse === null || descriptionToUse === undefined || (typeof descriptionToUse === 'string' && !descriptionToUse.trim())) {
+        let dateString = "Unknown Date";
+        const ts = doc.timestamp || doc.$createdAt; // Priorité au timestamp du chat, sinon $createdAt d'Appwrite
+        if (ts && !isNaN(new Date(ts).getTime())) {
+            dateString = new Date(ts).toLocaleDateString();
+        }
+        descriptionToUse = `Chat (${doc.chatId.substring(0, 6)}) - ${dateString}`;
+        // logger.warn(`db.ts: mapDocumentToChatHistoryItem - Doc ${doc.$id} (chatId: ${doc.chatId}) has null/empty description. Defaulting to: "${descriptionToUse}"`);
     }
 
-    // S'assurer que urlId est undefined s'il est vide, pour le filtre `!!item.urlId`
     const urlIdToUse = doc.urlId?.trim() ? doc.urlId.trim() : undefined;
-    if (doc.urlId && !urlIdToUse) {
-        logger.warn(`db.ts: mapDocumentToChatHistoryItem - Document ${doc.$id} (chatId: ${doc.chatId}) has empty urlId. Setting to undefined.`);
-    }
-
+    // if (doc.urlId && !urlIdToUse) {
+    //     logger.warn(`db.ts: mapDocumentToChatHistoryItem - Doc ${doc.$id} (chatId: ${doc.chatId}) has empty urlId. Setting to undefined.`);
+    // }
 
     return {
       id: doc.chatId,
       appwriteDocumentId: doc.$id,
       urlId: urlIdToUse,
-      description: descriptionToUse, // Utiliser la description (potentiellement par défaut)
+      description: descriptionToUse,
       messages: messages as Message[],
       timestamp: doc.timestamp,
       metadata: metadata,
     };
   } catch (e) {
-    logger.error(`db.ts: mapDocumentToChatHistoryItem - JSON parsing or other error for doc $id ${doc.$id}, chatId ${doc.chatId}:`, e, "Raw doc:", doc);
-    // En cas d'erreur de parsing critique, on pourrait retourner un objet placeholder ou lancer plus haut
+    logger.error(`db.ts: mapDocumentToChatHistoryItem - Error for doc $id ${doc.$id}, chatId ${doc.chatId}:`, e, "Raw doc messages:", doc.messages, "Raw doc metadata:", doc.metadata);
     return {
         id: doc.chatId,
         appwriteDocumentId: doc.$id,
         urlId: doc.urlId || undefined,
-        description: `Error loading chat ${doc.chatId.substring(0,8)}`,
+        description: `Error loading title for ${doc.chatId.substring(0,8)}`,
         messages: [],
         timestamp: doc.timestamp || new Date().toISOString(),
         metadata: undefined,
@@ -87,239 +78,218 @@ function mapDocumentToChatHistoryItem(doc: any): ChatHistoryItem {
   }
 }
 
-// Helper pour mapper un document Appwrite à Snapshot
 function mapDocumentToSnapshot(doc: any): Snapshot | undefined {
-    if (!doc) return undefined;
-    return {
-        chatIndex: doc.chatIndex,
-        files: JSON.parse(doc.files || '{}'),
-        summary: doc.summary,
-        // On pourrait ajouter appwriteDocumentId ici si nécessaire
-    };
+    if (!doc || !doc.chatId) { // chatId est la clé pour les snapshots dans Appwrite
+        logger.error("db.ts: mapDocumentToSnapshot - Document ou doc.chatId (keyPath) manquant", doc);
+        return undefined;
+    }
+    try {
+        return {
+            chatIndex: doc.chatIndex, // Assurez-vous que ces champs existent dans vos documents snapshot
+            files: JSON.parse(doc.files || '{}'),
+            summary: doc.summary,
+        };
+    } catch(e) {
+        logger.error(`db.ts: mapDocumentToSnapshot - JSON parsing error for snapshot of chat ${doc.chatId}:`, e, "Raw files data:", doc.files);
+        return undefined; // ou un snapshot partiel indiquant une erreur
+    }
 }
-
-
-// Cette fonction n'est plus nécessaire car Appwrite gère la connexion.
-// export async function openDatabase(): Promise<IDBDatabase | undefined> { ... }
-// On s'assurera que la session Appwrite est initialisée avant les opérations.
 
 export async function getAll(): Promise<ChatHistoryItem[]> {
   if (!databases || !VITE_APPWRITE_DATABASE_ID) {
-    logger.warn('Appwrite not configured, cannot getAll chats.');
+    logger.warn('db.ts: Appwrite not configured, cannot getAll chats.');
     return [];
   }
-  await getAppwriteSession(); // S'assurer qu'une session existe
+  // logger.info('db.ts: Attempting to get Appwrite session for getAll...'); // Peut être verbeux
+  await getAppwriteSession();
+  // logger.info('db.ts: Appwrite session obtained. Fetching all chats from Appwrite...');
   try {
     const response = await databases.listDocuments(
       VITE_APPWRITE_DATABASE_ID,
       COLLECTION_ID_CHATS,
-      // Ajoutez des requêtes ici si nécessaire (ex: par utilisateur, tri)
-      // [Query.limit(100)] // Pagination
+      [Query.orderDesc('timestamp')] // Optionnel: trier par timestamp descendant
     );
-    return response.documents.map(mapDocumentToChatHistoryItem);
+    // logger.info(`db.ts: Appwrite response for getAll: ${response.total} total documents found.`);
+    // if (response.documents.length === 0) {
+    //     logger.warn('db.ts: No documents found in Appwrite chats collection by listDocuments.');
+    // }
+
+    const mappedItems = response.documents.map(doc => {
+        try {
+            return mapDocumentToChatHistoryItem(doc);
+        } catch (mapError) {
+            logger.error(`db.ts: Error during explicit mapping for document ${doc.$id} (chatId: ${doc.chatId}):`, mapError, "Raw doc:", JSON.stringify(doc).substring(0,200));
+            return null; // Pour filtrer plus tard
+        }
+    }).filter(item => item !== null) as ChatHistoryItem[];
+
+    // logger.info(`db.ts: Mapped ${mappedItems.length} chat items successfully.`);
+    return mappedItems;
   } catch (error) {
-    logger.error('Error fetching all chats from Appwrite:', error);
+    logger.error('db.ts: Error during databases.listDocuments in getAll:', error);
     throw error;
   }
 }
 
 export async function setMessages(
-  // db: IDBDatabase, // Plus besoin de db en paramètre
-  chatId: string, // C'est notre ID métier
+  chatId: string,
   messages: Message[],
   urlId?: string,
   description?: string,
-  timestamp?: string, // Appwrite gère $createdAt et $updatedAt, mais on peut le forcer
+  timestamp?: string,
   metadata?: IChatMetadata,
-  appwriteDocumentId?: string, // Pour les mises à jour
-): Promise<string> { // Retourne l'ID du document Appwrite
+  appwriteDocumentId?: string,
+): Promise<string> {
   if (!databases || !VITE_APPWRITE_DATABASE_ID) {
-    logger.warn('Appwrite not configured, cannot setMessages.');
+    logger.warn('db.ts: Appwrite not configured, cannot setMessages.');
     throw new Error('Appwrite not configured');
   }
   await getAppwriteSession();
 
   if (timestamp && isNaN(Date.parse(timestamp))) {
+    logger.error(`db.ts: Invalid timestamp provided for setMessages: ${timestamp}`);
     throw new Error('Invalid timestamp');
   }
+
+  const finalDescription = (description?.trim()) ? description.trim() : null; // Stocker null si vide
+  // Si vous voulez absolument une description, utilisez le fallback comme dans mapDocumentToChatHistoryItem
+  // const finalDescription = (description?.trim()) ? description.trim() : `Chat (${chatId.substring(0,6)}) - ${new Date(timestamp || Date.now()).toLocaleDateString()}`;
+
 
   const dataPayload = {
     chatId,
     messages: JSON.stringify(messages),
-    urlId: urlId || null, // Appwrite préfère null pour les champs optionnels vides
-    description: description || null,
+    urlId: urlId || null,
+    description: finalDescription,
     timestamp: timestamp ?? new Date().toISOString(),
     metadata: metadata ? JSON.stringify(metadata) : null,
-    // userId: (await account.get()).$id // Si vous liez à l'utilisateur
   };
 
   try {
     let doc;
-    if (appwriteDocumentId) { // Mise à jour
-      doc = await databases.updateDocument(
-        VITE_APPWRITE_DATABASE_ID,
-        COLLECTION_ID_CHATS,
-        appwriteDocumentId,
-        dataPayload
-      );
-    } else { // Création
-      // Vérifier si un chat avec ce chatId existe déjà pour éviter les doublons si chatId doit être unique
-      const existing = await getMessagesById(chatId, false); // false pour ne pas throw si non trouvé
+    if (appwriteDocumentId) {
+      logger.info(`db.ts: Updating document ${appwriteDocumentId} for chatId ${chatId}`);
+      doc = await databases.updateDocument(VITE_APPWRITE_DATABASE_ID, COLLECTION_ID_CHATS, appwriteDocumentId, dataPayload);
+    } else {
+      const existing = await getMessagesById(chatId, false);
       if (existing && existing.appwriteDocumentId) {
-         doc = await databases.updateDocument(
-            VITE_APPWRITE_DATABASE_ID,
-            COLLECTION_ID_CHATS,
-            existing.appwriteDocumentId,
-            dataPayload
-          );
+        logger.info(`db.ts: Found existing document ${existing.appwriteDocumentId} for chatId ${chatId}, updating.`);
+        doc = await databases.updateDocument(VITE_APPWRITE_DATABASE_ID, COLLECTION_ID_CHATS, existing.appwriteDocumentId, dataPayload);
       } else {
-        doc = await databases.createDocument(
-          VITE_APPWRITE_DATABASE_ID,
-          COLLECTION_ID_CHATS,
-          ID.unique(), // Appwrite génère un ID unique pour le document
-          dataPayload
-        );
+        logger.info(`db.ts: No existing document for chatId ${chatId}, creating new.`);
+        doc = await databases.createDocument(VITE_APPWRITE_DATABASE_ID, COLLECTION_ID_CHATS, ID.unique(), dataPayload);
       }
     }
-    return doc.$id; // Retourne l'ID du document créé/mis à jour
+    logger.info(`db.ts: Successfully setMessages for chatId ${chatId}, Appwrite Doc ID: ${doc.$id}`);
+    return doc.$id;
   } catch (error) {
-    logger.error('Error setting messages in Appwrite:', error);
+    logger.error(`db.ts: Error setting messages in Appwrite for chatId ${chatId}:`, error, "Payload:", dataPayload);
     throw error;
   }
 }
 
-// id peut être chatId ou urlId
 export async function getMessages(id: string): Promise<ChatHistoryItem | null> {
+  if (!id?.trim()) {
+    logger.warn("db.ts: getMessages called with empty or invalid ID.");
+    return null;
+  }
   let chat = await getMessagesById(id, false);
   if (chat) return chat;
   chat = await getMessagesByUrlId(id, false);
-  if (!chat) {
-    logger.warn(`Chat not found by id or urlId: ${id}`);
-    return null; // ou throw new Error('Chat not found'); si c'est le comportement attendu
-  }
+  // if (!chat) {
+  //   logger.warn(`db.ts: Chat not found by id or urlId: ${id}`);
+  // }
   return chat;
 }
 
 export async function getMessagesByUrlId(urlId: string, throwIfNotFound = true): Promise<ChatHistoryItem | null> {
-  if (!databases || !VITE_APPWRITE_DATABASE_ID) throw new Error('Appwrite not configured');
+  if (!databases || !VITE_APPWRITE_DATABASE_ID) { logger.error("db.ts: Appwrite not configured for getMessagesByUrlId"); throw new Error('Appwrite not configured');}
+  if (!urlId?.trim()) { logger.warn("db.ts: getMessagesByUrlId called with empty URL ID."); if (throwIfNotFound) throw new Error("Invalid URL ID"); return null; }
   await getAppwriteSession();
   try {
-    const response = await databases.listDocuments(
-      VITE_APPWRITE_DATABASE_ID,
-      COLLECTION_ID_CHATS,
-      [Query.equal('urlId', urlId), Query.limit(1)]
-    );
-    if (response.documents.length > 0) {
-      return mapDocumentToChatHistoryItem(response.documents[0]);
-    }
+    const response = await databases.listDocuments(VITE_APPWRITE_DATABASE_ID, COLLECTION_ID_CHATS, [Query.equal('urlId', urlId), Query.limit(1)]);
+    if (response.documents.length > 0) return mapDocumentToChatHistoryItem(response.documents[0]);
     if (throwIfNotFound) throw new Error(`Chat with urlId "${urlId}" not found.`);
     return null;
   } catch (error) {
-    logger.error(`Error fetching chat by urlId "${urlId}":`, error);
+    logger.error(`db.ts: Error fetching chat by urlId "${urlId}":`, error);
     if (throwIfNotFound) throw error;
     return null;
   }
 }
 
 export async function getMessagesById(chatId: string, throwIfNotFound = true): Promise<ChatHistoryItem | null> {
-  if (!databases || !VITE_APPWRITE_DATABASE_ID) throw new Error('Appwrite not configured');
+  if (!databases || !VITE_APPWRITE_DATABASE_ID) { logger.error("db.ts: Appwrite not configured for getMessagesById"); throw new Error('Appwrite not configured');}
+  if (!chatId?.trim()) { logger.warn("db.ts: getMessagesById called with empty chat ID."); if (throwIfNotFound) throw new Error("Invalid chat ID"); return null; }
   await getAppwriteSession();
   try {
-    // Si chatId est l'ID du document Appwrite, utilisez getDocument.
-    // Si c'est notre ID métier, il faut lister avec une query.
-    const response = await databases.listDocuments(
-      VITE_APPWRITE_DATABASE_ID,
-      COLLECTION_ID_CHATS,
-      [Query.equal('chatId', chatId), Query.limit(1)]
-    );
-    if (response.documents.length > 0) {
-      return mapDocumentToChatHistoryItem(response.documents[0]);
-    }
+    const response = await databases.listDocuments(VITE_APPWRITE_DATABASE_ID, COLLECTION_ID_CHATS, [Query.equal('chatId', chatId), Query.limit(1)]);
+    if (response.documents.length > 0) return mapDocumentToChatHistoryItem(response.documents[0]);
     if (throwIfNotFound) throw new Error(`Chat with chatId "${chatId}" not found.`);
     return null;
   } catch (error) {
-    logger.error(`Error fetching chat by chatId "${chatId}":`, error);
+    logger.error(`db.ts: Error fetching chat by chatId "${chatId}":`, error);
     if (throwIfNotFound) throw error;
     return null;
   }
 }
 
 export async function deleteById(chatDocumentId: string, chatIdForSnapshots: string): Promise<void> {
-  if (!databases || !VITE_APPWRITE_DATABASE_ID) throw new Error('Appwrite not configured');
+  if (!databases || !VITE_APPWRITE_DATABASE_ID) { logger.error("db.ts: Appwrite not configured for deleteById"); throw new Error('Appwrite not configured');}
+  if (!chatDocumentId?.trim() || !chatIdForSnapshots?.trim()) { logger.error("db.ts: deleteById called with invalid IDs.", { chatDocumentId, chatIdForSnapshots }); throw new Error("Invalid ID for deletion."); }
   await getAppwriteSession();
   try {
-    // 1. Supprimer les snapshots associés
-    const snapshots = await databases.listDocuments(
-        VITE_APPWRITE_DATABASE_ID,
-        COLLECTION_ID_SNAPSHOTS,
-        [Query.equal('chatDocumentId', chatDocumentId)] // Ou Query.equal('chatId', chatIdForSnapshots) si vous liez par chatId métier
-    );
+    const snapshots = await databases.listDocuments(VITE_APPWRITE_DATABASE_ID, COLLECTION_ID_SNAPSHOTS, [Query.equal('chatDocumentId', chatDocumentId)]);
+    logger.info(`db.ts: Found ${snapshots.documents.length} snapshots to delete for chat associated with Appwrite doc ${chatDocumentId} (chatId: ${chatIdForSnapshots})`);
     for (const snap of snapshots.documents) {
-        await databases.deleteDocument(VITE_APPWRITE_DATABASE_ID, COLLECTION_ID_SNAPSHOTS, snap.$id);
+      await databases.deleteDocument(VITE_APPWRITE_DATABASE_ID, COLLECTION_ID_SNAPSHOTS, snap.$id);
     }
-    logger.info(`Deleted ${snapshots.documents.length} snapshots for chat ${chatIdForSnapshots}`);
-
-    // 2. Supprimer le chat lui-même
     await databases.deleteDocument(VITE_APPWRITE_DATABASE_ID, COLLECTION_ID_CHATS, chatDocumentId);
-    logger.info(`Deleted chat ${chatDocumentId}`);
+    logger.info(`db.ts: Deleted chat ${chatDocumentId} (chatId: ${chatIdForSnapshots}) and its snapshots.`);
   } catch (error) {
-    logger.error(`Error deleting chat ${chatDocumentId} and its snapshots:`, error);
+    logger.error(`db.ts: Error deleting chat ${chatDocumentId} (chatId: ${chatIdForSnapshots}) and/or its snapshots:`, error);
     throw error;
   }
 }
 
-// `getNextId` pour `chatId` peut être remplacé par `ID.unique()` d'Appwrite si vous l'utilisez comme `chatId`.
-// Si vous avez besoin d'un ID numérique séquentiel, c'est plus complexe avec Appwrite et généralement déconseillé.
-// On va assumer que `chatId` sera un UUID généré par le client ou `ID.unique()`.
-// La logique de `getNextId` était plus pour `urlId` pour éviter les collisions.
 export async function generateNewChatId(): Promise<string> {
-    return ID.unique(); // Utilise la fonction d'Appwrite pour générer un ID unique
+  return ID.unique();
 }
 
 export async function getUrlId(baseId: string): Promise<string> {
-  if (!databases || !VITE_APPWRITE_DATABASE_ID) throw new Error('Appwrite not configured');
+  if (!databases || !VITE_APPWRITE_DATABASE_ID) { logger.error("db.ts: Appwrite not configured for getUrlId"); throw new Error('Appwrite not configured');}
+  if (!baseId?.trim()) { logger.error("db.ts: getUrlId called with empty baseId."); throw new Error("Base ID cannot be empty."); }
   await getAppwriteSession();
-
   let potentialUrlId = baseId;
   let i = 2;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     try {
-      const response = await databases.listDocuments(
-        VITE_APPWRITE_DATABASE_ID,
-        COLLECTION_ID_CHATS,
-        [Query.equal('urlId', potentialUrlId), Query.limit(1)]
-      );
-      if (response.documents.length === 0) {
-        return potentialUrlId; // Cet urlId est disponible
-      }
-      potentialUrlId = `${baseId}-${i}`;
-      i++;
+      const response = await databases.listDocuments(VITE_APPWRITE_DATABASE_ID, COLLECTION_ID_CHATS, [Query.equal('urlId', potentialUrlId), Query.limit(1)]);
+      if (response.documents.length === 0) return potentialUrlId;
+      potentialUrlId = `${baseId}-${i++}`;
     } catch (error) {
-      logger.error(`Error checking urlId availability for "${potentialUrlId}":`, error);
-      throw error; // Rethrow, car on ne peut pas garantir l'unicité
+      logger.error(`db.ts: Error checking urlId availability for "${potentialUrlId}":`, error);
+      throw error;
     }
   }
 }
 
-export async function forkChat(chatIdToFork: string, messageId: string): Promise<string> { // Retourne le nouveau urlId
-  const chat = await getMessages(chatIdToFork); // Peut être chatId ou urlId
-  if (!chat || !chat.appwriteDocumentId) throw new Error('Chat not found to fork');
-
+export async function forkChat(chatIdToFork: string, messageId: string): Promise<string> {
+  logger.info(`db.ts: Forking chat ${chatIdToFork} at message ${messageId}`);
+  const chat = await getMessages(chatIdToFork);
+  if (!chat || !chat.appwriteDocumentId) { logger.error(`db.ts: Chat ${chatIdToFork} not found to fork.`); throw new Error('Chat not found to fork');}
   const messageIndex = chat.messages.findIndex((msg) => msg.id === messageId);
-  if (messageIndex === -1) throw new Error('Message not found in chat to fork');
-
+  if (messageIndex === -1) { logger.error(`db.ts: Message ${messageId} not found in chat ${chatIdToFork}.`); throw new Error('Message not found in chat to fork');}
   const messages = chat.messages.slice(0, messageIndex + 1);
-  const description = chat.description ? `${chat.description} (fork)` : 'Forked chat';
-  
+  const description = chat.description ? `${chat.description} (fork)` : `Fork of ${chat.id.substring(0,6)}`;
   return createChatFromMessages(description, messages, chat.metadata);
 }
 
-export async function duplicateChat(idToDuplicate: string): Promise<string> { // Retourne le nouveau urlId
+export async function duplicateChat(idToDuplicate: string): Promise<string> {
+  logger.info(`db.ts: Duplicating chat ${idToDuplicate}`);
   const chat = await getMessages(idToDuplicate);
-  if (!chat || !chat.appwriteDocumentId) throw new Error('Chat not found to duplicate');
-
-  const description = `${chat.description || 'Chat'} (copy)`;
+  if (!chat || !chat.appwriteDocumentId) { logger.error(`db.ts: Chat ${idToDuplicate} not found to duplicate.`); throw new Error('Chat not found to duplicate');}
+  const description = `${chat.description || `Chat ${chat.id.substring(0,6)}`} (copy)`;
   return createChatFromMessages(description, chat.messages, chat.metadata);
 }
 
@@ -327,126 +297,74 @@ export async function createChatFromMessages(
   description: string,
   messages: Message[],
   metadata?: IChatMetadata,
-): Promise<string> { // Retourne le nouveau urlId
-  const newChatId = await generateNewChatId(); // Génère un ID métier unique pour le chat
-  const newUrlId = await getUrlId(newChatId.substring(0, 8)); // Base pour l'urlId, par exemple
-
-  await setMessages(
-    newChatId,
-    messages,
-    newUrlId,
-    description,
-    undefined,
-    metadata,
-    // pas d'appwriteDocumentId car c'est une création
-  );
+): Promise<string> {
+  const newChatId = await generateNewChatId();
+  const newUrlId = await getUrlId(description.substring(0,15).replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '').toLowerCase() || newChatId.substring(0, 8));
+  logger.info(`db.ts: Creating new chat with newChatId: ${newChatId}, newUrlId: ${newUrlId}, description: "${description}"`);
+  await setMessages(newChatId, messages, newUrlId, description, undefined, metadata);
   return newUrlId;
 }
 
 export async function updateChatDescription(id: string, description: string): Promise<void> {
-  const chat = await getMessages(id); // Peut être chatId ou urlId
-  if (!chat || !chat.appwriteDocumentId) throw new Error('Chat not found to update description');
-  if (!description.trim()) throw new Error('Description cannot be empty');
-
-  await setMessages(
-    chat.id, // chatId métier
-    chat.messages,
-    chat.urlId,
-    description,
-    chat.timestamp, // Ou undefined pour laisser Appwrite mettre à jour $updatedAt
-    chat.metadata,
-    chat.appwriteDocumentId, // Important pour l'update
-  );
-}
-
-export async function updateChatMetadata(
-  id: string,
-  metadata: IChatMetadata | undefined,
-): Promise<void> {
+  logger.info(`db.ts: Updating description for chat ${id} to "${description}"`);
   const chat = await getMessages(id);
-  if (!chat || !chat.appwriteDocumentId) throw new Error('Chat not found to update metadata');
-
-  await setMessages(
-    chat.id, // chatId métier
-    chat.messages,
-    chat.urlId,
-    chat.description,
-    chat.timestamp, // Ou undefined
-    metadata,
-    chat.appwriteDocumentId, // Important pour l'update
-  );
+  if (!chat || !chat.appwriteDocumentId) { logger.error(`db.ts: Chat ${id} not found for description update.`); throw new Error('Chat not found');}
+  if (!description?.trim()) { logger.error(`db.ts: Description cannot be empty for chat ${id}.`); throw new Error('Description cannot be empty');}
+  await setMessages(chat.id, chat.messages, chat.urlId, description, chat.timestamp, chat.metadata, chat.appwriteDocumentId);
 }
 
-// --- Snapshot functions ---
-export async function getSnapshot(chatDocumentIdOrChatId: string): Promise<Snapshot | undefined> {
-    if (!databases || !VITE_APPWRITE_DATABASE_ID) throw new Error('Appwrite not configured');
-    await getAppwriteSession();
-    try {
-        // On suppose que chatDocumentIdOrChatId est l'ID du document Appwrite du chat.
-        // Si c'est le chatId métier, il faut d'abord récupérer le chat pour avoir son $id.
-        // Ou, si on a stocké `chatId` dans la collection snapshots :
-        // Query.equal('chatId', chatDocumentIdOrChatId)
-        const response = await databases.listDocuments(
-            VITE_APPWRITE_DATABASE_ID,
-            COLLECTION_ID_SNAPSHOTS,
-            [Query.equal('chatDocumentId', chatDocumentIdOrChatId), Query.orderDesc('$createdAt'), Query.limit(1)] // Le plus récent
-        );
-        if (response.documents.length > 0) {
-            return mapDocumentToSnapshot(response.documents[0]);
-        }
-        return undefined;
-    } catch (error) {
-        logger.error(`Error fetching snapshot for chat ${chatDocumentIdOrChatId}:`, error);
-        throw error;
-    }
+export async function updateChatMetadata(id: string, metadata: IChatMetadata | undefined ): Promise<void> {
+  logger.info(`db.ts: Updating metadata for chat ${id}.`);
+  const chat = await getMessages(id);
+  if (!chat || !chat.appwriteDocumentId) { logger.error(`db.ts: Chat ${id} not found for metadata update.`); throw new Error('Chat not found');}
+  await setMessages(chat.id, chat.messages, chat.urlId, chat.description, chat.timestamp, metadata, chat.appwriteDocumentId);
+}
+
+export async function getSnapshot(chatDocumentId: string): Promise<Snapshot | undefined> {
+  if (!databases || !VITE_APPWRITE_DATABASE_ID) { logger.error("db.ts: Appwrite not configured for getSnapshot"); throw new Error('Appwrite not configured');}
+  if (!chatDocumentId?.trim()) { logger.warn("db.ts: getSnapshot called with empty chatDocumentId."); return undefined; }
+  await getAppwriteSession();
+  try {
+    const response = await databases.listDocuments(VITE_APPWRITE_DATABASE_ID, COLLECTION_ID_SNAPSHOTS, [Query.equal('chatDocumentId', chatDocumentId), Query.orderDesc('$createdAt'), Query.limit(1)]);
+    if (response.documents.length > 0) return mapDocumentToSnapshot(response.documents[0]);
+    return undefined;
+  } catch (error) {
+    logger.error(`db.ts: Error fetching snapshot for chat doc ${chatDocumentId}:`, error);
+    throw error; // Ou retourner undefined
+  }
 }
 
 export async function setSnapshot(chatDocumentId: string, snapshot: Snapshot): Promise<void> {
-    if (!databases || !VITE_APPWRITE_DATABASE_ID) throw new Error('Appwrite not configured');
-    await getAppwriteSession();
-
-    const dataPayload = {
-        chatDocumentId, // L'ID du document Appwrite du chat parent
-        chatIndex: snapshot.chatIndex,
-        files: JSON.stringify(snapshot.files),
-        summary: snapshot.summary || null,
-        // userId: (await account.get()).$id // Si lié à l'utilisateur
-    };
-
-    try {
-        // Pourrait vérifier si un snapshot existe déjà pour ce chatIndex et l'update, ou toujours créer.
-        // Pour simplifier, on crée toujours un nouveau.
-        await databases.createDocument(
-            VITE_APPWRITE_DATABASE_ID,
-            COLLECTION_ID_SNAPSHOTS,
-            ID.unique(),
-            dataPayload
-        );
-    } catch (error) {
-        logger.error(`Error setting snapshot for chat ${chatDocumentId}:`, error);
-        throw error;
-    }
+   if (!databases || !VITE_APPWRITE_DATABASE_ID) { logger.error("db.ts: Appwrite not configured for setSnapshot"); throw new Error('Appwrite not configured');}
+   if (!chatDocumentId?.trim()) { logger.error("db.ts: setSnapshot called with empty chatDocumentId."); throw new Error("chatDocumentId cannot be empty for snapshot."); }
+   await getAppwriteSession();
+   const dataPayload = { chatDocumentId, chatIndex: snapshot.chatIndex, files: JSON.stringify(snapshot.files), summary: snapshot.summary || null };
+   try {
+    await databases.createDocument(VITE_APPWRITE_DATABASE_ID, COLLECTION_ID_SNAPSHOTS, ID.unique(), dataPayload);
+    logger.info(`db.ts: Snapshot set for chat doc ${chatDocumentId}`);
+   } catch (error) {
+    logger.error(`db.ts: Error setting snapshot for chat doc ${chatDocumentId}:`, error, "Payload:", dataPayload);
+    throw error;
+   }
 }
 
 export async function deleteSnapshot(chatDocumentId: string, snapshotAppwriteId?: string): Promise<void> {
-    if (!databases || !VITE_APPWRITE_DATABASE_ID) throw new Error('Appwrite not configured');
-    await getAppwriteSession();
-    try {
-        if (snapshotAppwriteId) { // Supprimer un snapshot spécifique
-            await databases.deleteDocument(VITE_APPWRITE_DATABASE_ID, COLLECTION_ID_SNAPSHOTS, snapshotAppwriteId);
-        } else { // Supprimer tous les snapshots pour ce chatDocumentId (plus rare, mais pour correspondre à l'original)
-            const snapshots = await databases.listDocuments(
-                VITE_APPWRITE_DATABASE_ID,
-                COLLECTION_ID_SNAPSHOTS,
-                [Query.equal('chatDocumentId', chatDocumentId)]
-            );
-            for (const snap of snapshots.documents) {
-                await databases.deleteDocument(VITE_APPWRITE_DATABASE_ID, COLLECTION_ID_SNAPSHOTS, snap.$id);
-            }
-        }
-    } catch (error) {
-        // Appwrite lève une erreur si le document n'est pas trouvé, donc pas besoin de gérer NotFoundError spécifiquement comme avec IndexedDB
-        logger.error(`Error deleting snapshot(s) for chat ${chatDocumentId}:`, error);
-        throw error;
+  if (!databases || !VITE_APPWRITE_DATABASE_ID) { logger.error("db.ts: Appwrite not configured for deleteSnapshot"); throw new Error('Appwrite not configured');}
+  if (!chatDocumentId?.trim() && !snapshotAppwriteId?.trim()) { logger.error("db.ts: deleteSnapshot called with no valid ID."); throw new Error("Either chatDocumentId or snapshotAppwriteId is required.");}
+  await getAppwriteSession();
+  try {
+    if (snapshotAppwriteId) {
+      await databases.deleteDocument(VITE_APPWRITE_DATABASE_ID, COLLECTION_ID_SNAPSHOTS, snapshotAppwriteId);
+      logger.info(`db.ts: Deleted specific snapshot ${snapshotAppwriteId}`);
+    } else if (chatDocumentId) { // S'assurer que chatDocumentId est présent si snapshotAppwriteId ne l'est pas
+      const snapshots = await databases.listDocuments(VITE_APPWRITE_DATABASE_ID, COLLECTION_ID_SNAPSHOTS, [Query.equal('chatDocumentId', chatDocumentId)]);
+      logger.info(`db.ts: Found ${snapshots.documents.length} snapshots to delete for chat doc ${chatDocumentId}`);
+      for (const snap of snapshots.documents) {
+        await databases.deleteDocument(VITE_APPWRITE_DATABASE_ID, COLLECTION_ID_SNAPSHOTS, snap.$id);
+      }
     }
+  } catch (error) {
+    logger.error(`db.ts: Error deleting snapshot(s) for chat doc ${chatDocumentId} or snapshot ${snapshotAppwriteId}:`, error);
+    throw error;
+  }
 }
