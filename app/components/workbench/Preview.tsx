@@ -6,13 +6,10 @@ import { PortDropdown } from './PortDropdown';
 import { ScreenshotSelector } from './ScreenshotSelector';
 import { expoUrlAtom } from '~/lib/stores/qrCodeStore';
 import { ExpoQrModal } from '~/components/workbench/ExpoQrModal';
-import type { ElementInfo } from './Inspector';
+// --- AJOUT ---
+import { selectedTemplateNameAtom } from '~/lib/stores/workbench'; // Ajustez le chemin si nécessaire
 
 type ResizeSide = 'left' | 'right' | null;
-
-interface PreviewProps {
-  setSelectedElement?: (element: ElementInfo | null) => void;
-}
 
 interface WindowSize {
   name: string;
@@ -26,25 +23,11 @@ interface WindowSize {
 const WINDOW_SIZES: WindowSize[] = [
   { name: 'iPhone SE', width: 375, height: 667, icon: 'i-ph:device-mobile', hasFrame: true, frameType: 'mobile' },
   { name: 'iPhone 12/13', width: 390, height: 844, icon: 'i-ph:device-mobile', hasFrame: true, frameType: 'mobile' },
-  {
-    name: 'iPhone 12/13 Pro Max',
-    width: 428,
-    height: 926,
-    icon: 'i-ph:device-mobile',
-    hasFrame: true,
-    frameType: 'mobile',
-  },
+  { name: 'iPhone 12/13 Pro Max', width: 428, height: 926, icon: 'i-ph:device-mobile', hasFrame: true, frameType: 'mobile' },
   { name: 'iPad Mini', width: 768, height: 1024, icon: 'i-ph:device-tablet', hasFrame: true, frameType: 'tablet' },
   { name: 'iPad Air', width: 820, height: 1180, icon: 'i-ph:device-tablet', hasFrame: true, frameType: 'tablet' },
   { name: 'iPad Pro 11"', width: 834, height: 1194, icon: 'i-ph:device-tablet', hasFrame: true, frameType: 'tablet' },
-  {
-    name: 'iPad Pro 12.9"',
-    width: 1024,
-    height: 1366,
-    icon: 'i-ph:device-tablet',
-    hasFrame: true,
-    frameType: 'tablet',
-  },
+  { name: 'iPad Pro 12.9"', width: 1024, height: 1366, icon: 'i-ph:device-tablet', hasFrame: true, frameType: 'tablet' },
   { name: 'Small Laptop', width: 1280, height: 800, icon: 'i-ph:laptop', hasFrame: true, frameType: 'laptop' },
   { name: 'Laptop', width: 1366, height: 768, icon: 'i-ph:laptop', hasFrame: true, frameType: 'laptop' },
   { name: 'Large Laptop', width: 1440, height: 900, icon: 'i-ph:laptop', hasFrame: true, frameType: 'laptop' },
@@ -52,10 +35,11 @@ const WINDOW_SIZES: WindowSize[] = [
   { name: '4K Display', width: 3840, height: 2160, icon: 'i-ph:monitor', hasFrame: true, frameType: 'desktop' },
 ];
 
-export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
+export const Preview = memo(() => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
   const [activePreviewIndex, setActivePreviewIndex] = useState(0);
   const [isPortDropdownOpen, setIsPortDropdownOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -65,7 +49,6 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
   const [displayPath, setDisplayPath] = useState('/');
   const [iframeUrl, setIframeUrl] = useState<string | undefined>();
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [isInspectorMode, setIsInspectorMode] = useState(false);
   const [isDeviceModeOn, setIsDeviceModeOn] = useState(false);
   const [widthPercent, setWidthPercent] = useState<number>(37.5);
   const [currentWidth, setCurrentWidth] = useState<number>(0);
@@ -78,10 +61,7 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
     windowWidth: window.innerWidth,
     pointerId: null as number | null,
   });
-
-  // Reduce scaling factor to make resizing less sensitive
   const SCALING_FACTOR = 1;
-
   const [isWindowSizeDropdownOpen, setIsWindowSizeDropdownOpen] = useState(false);
   const [selectedWindowSize, setSelectedWindowSize] = useState<WindowSize>(WINDOW_SIZES[0]);
   const [isLandscape, setIsLandscape] = useState(false);
@@ -90,14 +70,17 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
   const expoUrl = useStore(expoUrlAtom);
   const [isExpoQrModalOpen, setIsExpoQrModalOpen] = useState(false);
 
+  // --- AJOUT ---
+  const currentSelectedTemplate = useStore(selectedTemplateNameAtom);
+  const isExpoTemplate = currentSelectedTemplate === 'Expo App';
+  // --- FIN AJOUT ---
+
   useEffect(() => {
     if (!activePreview) {
       setIframeUrl(undefined);
       setDisplayPath('/');
-
       return;
     }
-
     const { baseUrl } = activePreview;
     setIframeUrl(baseUrl);
     setDisplayPath('/');
@@ -132,32 +115,19 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
   };
 
   useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-
+    const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-    };
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  const toggleDeviceMode = () => {
-    setIsDeviceModeOn((prev) => !prev);
-  };
+  const toggleDeviceMode = () => setIsDeviceModeOn((prev) => !prev);
 
   const startResizing = (e: React.PointerEvent, side: ResizeSide) => {
-    if (!isDeviceModeOn) {
-      return;
-    }
-
+    if (!isDeviceModeOn) return;
     const target = e.currentTarget as HTMLElement;
     target.setPointerCapture(e.pointerId);
-
     document.body.style.userSelect = 'none';
     document.body.style.cursor = 'ew-resize';
-
     resizingState.current = {
       isResizing: true,
       side,
@@ -169,36 +139,21 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
   };
 
   const ResizeHandle = ({ side }: { side: ResizeSide }) => {
-    if (!side) {
-      return null;
-    }
-
+    if (!side) return null;
     return (
       <div
         className={`resize-handle-${side}`}
         onPointerDown={(e) => startResizing(e, side)}
         style={{
-          position: 'absolute',
-          top: 0,
+          position: 'absolute', top: 0,
           ...(side === 'left' ? { left: 0, marginLeft: '-7px' } : { right: 0, marginRight: '-7px' }),
-          width: '15px',
-          height: '100%',
-          cursor: 'ew-resize',
-          background: 'var(--bolt-elements-background-depth-4, rgba(0,0,0,.3))',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'background 0.2s',
-          userSelect: 'none',
-          touchAction: 'none',
-          zIndex: 10,
+          width: '15px', height: '100%', cursor: 'ew-resize',
+          background: 'var(--bolt-elements-background-depth-3, rgba(0,0,0,.15))', // Default color
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'background 0.2s', userSelect: 'none', touchAction: 'none', zIndex: 10,
         }}
-        onMouseOver={(e) =>
-          (e.currentTarget.style.background = 'var(--bolt-elements-background-depth-4, rgba(0,0,0,.3))')
-        }
-        onMouseOut={(e) =>
-          (e.currentTarget.style.background = 'var(--bolt-elements-background-depth-3, rgba(0,0,0,.15))')
-        }
+        onMouseOver={(e) => (e.currentTarget.style.background = 'var(--bolt-elements-background-depth-4, rgba(0,0,0,.3))')}
+        onMouseOut={(e) => (e.currentTarget.style.background = 'var(--bolt-elements-background-depth-3, rgba(0,0,0,.15))')}
         title="Drag to resize width"
       >
         <GripIcon />
@@ -207,91 +162,45 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
   };
 
   useEffect(() => {
-    // Skip if not in device mode
-    if (!isDeviceModeOn) {
-      return;
-    }
-
+    if (!isDeviceModeOn) return;
     const handlePointerMove = (e: PointerEvent) => {
       const state = resizingState.current;
-
-      if (!state.isResizing || e.pointerId !== state.pointerId) {
-        return;
-      }
-
+      if (!state.isResizing || e.pointerId !== state.pointerId) return;
       const dx = e.clientX - state.startX;
       const dxPercent = (dx / state.windowWidth) * 100 * SCALING_FACTOR;
-
       let newWidthPercent = state.startWidthPercent;
-
-      if (state.side === 'right') {
-        newWidthPercent = state.startWidthPercent + dxPercent;
-      } else if (state.side === 'left') {
-        newWidthPercent = state.startWidthPercent - dxPercent;
-      }
-
-      // Limit width percentage between 10% and 90%
+      if (state.side === 'right') newWidthPercent = state.startWidthPercent + dxPercent;
+      else if (state.side === 'left') newWidthPercent = state.startWidthPercent - dxPercent;
       newWidthPercent = Math.max(10, Math.min(newWidthPercent, 90));
-
-      // Force a synchronous update to ensure the UI reflects the change immediately
       setWidthPercent(newWidthPercent);
-
-      // Calculate and update the actual pixel width
       if (containerRef.current) {
         const containerWidth = containerRef.current.clientWidth;
         const newWidth = Math.round((containerWidth * newWidthPercent) / 100);
         setCurrentWidth(newWidth);
-
-        // Apply the width directly to the container for immediate feedback
         const previewContainer = containerRef.current.querySelector('div[style*="width"]');
-
-        if (previewContainer) {
-          (previewContainer as HTMLElement).style.width = `${newWidthPercent}%`;
-        }
+        if (previewContainer) (previewContainer as HTMLElement).style.width = `${newWidthPercent}%`;
       }
     };
-
     const handlePointerUp = (e: PointerEvent) => {
       const state = resizingState.current;
-
-      if (!state.isResizing || e.pointerId !== state.pointerId) {
-        return;
-      }
-
-      // Find all resize handles
+      if (!state.isResizing || e.pointerId !== state.pointerId) return;
       const handles = document.querySelectorAll('.resize-handle-left, .resize-handle-right');
-
-      // Release pointer capture from any handle that has it
       handles.forEach((handle) => {
         if ((handle as HTMLElement).hasPointerCapture?.(e.pointerId)) {
           (handle as HTMLElement).releasePointerCapture(e.pointerId);
         }
       });
-
-      // Reset state
-      resizingState.current = {
-        ...resizingState.current,
-        isResizing: false,
-        side: null,
-        pointerId: null,
-      };
-
+      resizingState.current = { ...resizingState.current, isResizing: false, side: null, pointerId: null };
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
     };
-
-    // Add event listeners
     document.addEventListener('pointermove', handlePointerMove, { passive: false });
     document.addEventListener('pointerup', handlePointerUp);
     document.addEventListener('pointercancel', handlePointerUp);
-
-    // Define cleanup function
     function cleanupResizeListeners() {
       document.removeEventListener('pointermove', handlePointerMove);
       document.removeEventListener('pointerup', handlePointerUp);
       document.removeEventListener('pointercancel', handlePointerUp);
-
-      // Release any lingering pointer captures
       if (resizingState.current.pointerId !== null) {
         const handles = document.querySelectorAll('.resize-handle-left, .resize-handle-right');
         handles.forEach((handle) => {
@@ -299,249 +208,101 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
             (handle as HTMLElement).releasePointerCapture(resizingState.current.pointerId!);
           }
         });
-
-        // Reset state
-        resizingState.current = {
-          ...resizingState.current,
-          isResizing: false,
-          side: null,
-          pointerId: null,
-        };
-
+        resizingState.current = { ...resizingState.current, isResizing: false, side: null, pointerId: null };
         document.body.style.userSelect = '';
         document.body.style.cursor = '';
       }
     }
-
-    // Return the cleanup function
     // eslint-disable-next-line consistent-return
     return cleanupResizeListeners;
-  }, [isDeviceModeOn, SCALING_FACTOR]);
+  }, [isDeviceModeOn, SCALING_FACTOR, widthPercent]); // Added widthPercent to dependencies
 
   useEffect(() => {
     const handleWindowResize = () => {
-      // Update the window width in the resizing state
       resizingState.current.windowWidth = window.innerWidth;
-
-      // Update the current width in pixels
       if (containerRef.current && isDeviceModeOn) {
         const containerWidth = containerRef.current.clientWidth;
         setCurrentWidth(Math.round((containerWidth * widthPercent) / 100));
       }
     };
-
     window.addEventListener('resize', handleWindowResize);
-
-    // Initial calculation of current width
     if (containerRef.current && isDeviceModeOn) {
       const containerWidth = containerRef.current.clientWidth;
       setCurrentWidth(Math.round((containerWidth * widthPercent) / 100));
     }
-
-    return () => {
-      window.removeEventListener('resize', handleWindowResize);
-    };
+    return () => window.removeEventListener('resize', handleWindowResize);
   }, [isDeviceModeOn, widthPercent]);
 
-  // Update current width when device mode is toggled
   useEffect(() => {
     if (containerRef.current && isDeviceModeOn) {
       const containerWidth = containerRef.current.clientWidth;
       setCurrentWidth(Math.round((containerWidth * widthPercent) / 100));
     }
-  }, [isDeviceModeOn]);
+  }, [isDeviceModeOn, widthPercent]); // Added widthPercent here too
 
   const GripIcon = () => (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100%',
-        pointerEvents: 'none',
-      }}
-    >
-      <div
-        style={{
-          color: 'var(--bolt-elements-textSecondary, rgba(0,0,0,0.5))',
-          fontSize: '10px',
-          lineHeight: '5px',
-          userSelect: 'none',
-          marginLeft: '1px',
-        }}
-      >
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', pointerEvents: 'none' }}>
+      <div style={{ color: 'var(--bolt-elements-textSecondary, rgba(0,0,0,0.5))', fontSize: '10px', lineHeight: '5px', userSelect: 'none', marginLeft: '1px' }}>
         ••• •••
       </div>
     </div>
   );
 
+  const getFrameColor = useCallback(() => {
+    const isDarkMode = document.documentElement.classList.contains('dark') ||
+                       document.documentElement.getAttribute('data-theme') === 'dark' ||
+                       window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return isDarkMode ? '#555' : '#111';
+  }, []);
+
   const openInNewWindow = (size: WindowSize) => {
     if (activePreview?.baseUrl) {
       const match = activePreview.baseUrl.match(/^https?:\/\/([^.]+)\.local-credentialless\.webcontainer-api\.io/);
-
       if (match) {
         const previewId = match[1];
-        const previewUrl = `/webcontainer/preview/${previewId}`;
-
-        // Adjust dimensions for landscape mode if applicable
-        let width = size.width;
-        let height = size.height;
-
-        if (isLandscape && (size.frameType === 'mobile' || size.frameType === 'tablet')) {
-          // Swap width and height for landscape mode
-          width = size.height;
-          height = size.width;
+        let previewUrl = `/webcontainer/preview/${previewId}`;
+        if(displayPath && displayPath !== '/') {
+            previewUrl += displayPath.startsWith('/') ? displayPath : `/${displayPath}`;
         }
 
-        // Create a window with device frame if enabled
+        let width = size.width;
+        let height = size.height;
+        if (isLandscape && (size.frameType === 'mobile' || size.frameType === 'tablet')) {
+          [width, height] = [height, width];
+        }
+
         if (showDeviceFrame && size.hasFrame) {
-          // Calculate frame dimensions
-          const frameWidth = size.frameType === 'mobile' ? (isLandscape ? 120 : 40) : 60; // Width padding on each side
-          const frameHeight = size.frameType === 'mobile' ? (isLandscape ? 80 : 80) : isLandscape ? 60 : 100; // Height padding on top and bottom
+          const frameWidth = size.frameType === 'mobile' ? (isLandscape ? 120 : 40) : 60;
+          const frameHeight = size.frameType === 'mobile' ? (isLandscape ? 80 : 80) : isLandscape ? 60 : 100;
+          const newWindow = window.open('', '_blank', `width=${width + frameWidth},height=${height + frameHeight + 40},menubar=no,toolbar=no,location=no,status=no`);
+          if (!newWindow) { console.error('Failed to open new window'); return; }
 
-          // Create a window with the correct dimensions first
-          const newWindow = window.open(
-            '',
-            '_blank',
-            `width=${width + frameWidth},height=${height + frameHeight + 40},menubar=no,toolbar=no,location=no,status=no`,
-          );
-
-          if (!newWindow) {
-            console.error('Failed to open new window');
-            return;
-          }
-
-          // Create the HTML content for the frame
           const frameColor = getFrameColor();
           const frameRadius = size.frameType === 'mobile' ? '36px' : '20px';
-          const framePadding =
-            size.frameType === 'mobile'
-              ? isLandscape
-                ? '40px 60px'
-                : '40px 20px'
-              : isLandscape
-                ? '30px 50px'
-                : '50px 30px';
-
-          // Position notch and home button based on orientation
-          const notchTop = isLandscape ? '50%' : '20px';
-          const notchLeft = isLandscape ? '30px' : '50%';
+          const framePadding = size.frameType === 'mobile' ? (isLandscape ? '40px 60px' : '40px 20px') : (isLandscape ? '30px 50px' : '50px 30px');
+          const notchTop = isLandscape ? '50%' : '20px'; const notchLeft = isLandscape ? '30px' : '50%';
           const notchTransform = isLandscape ? 'translateY(-50%)' : 'translateX(-50%)';
           const notchWidth = isLandscape ? '8px' : size.frameType === 'mobile' ? '60px' : '80px';
           const notchHeight = isLandscape ? (size.frameType === 'mobile' ? '60px' : '80px') : '8px';
-
-          const homeBottom = isLandscape ? '50%' : '15px';
-          const homeRight = isLandscape ? '30px' : '50%';
+          const homeBottom = isLandscape ? '50%' : '15px'; const homeRight = isLandscape ? '30px' : '50%';
           const homeTransform = isLandscape ? 'translateY(50%)' : 'translateX(50%)';
-          const homeWidth = isLandscape ? '4px' : '40px';
-          const homeHeight = isLandscape ? '40px' : '4px';
+          const homeWidth = isLandscape ? '4px' : '40px'; const homeHeight = isLandscape ? '40px' : '4px';
 
-          // Create HTML content for the wrapper page
           const htmlContent = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset="utf-8">
-              <title>${size.name} Preview</title>
-              <style>
-                body {
-                  margin: 0;
-                  padding: 0;
-                  display: flex;
-                  justify-content: center;
-                  align-items: center;
-                  height: 100vh;
-                  background: #f0f0f0;
-                  overflow: hidden;
-                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-                }
-                
-                .device-container {
-                  position: relative;
-                }
-                
-                .device-name {
-                  position: absolute;
-                  top: -30px;
-                  left: 0;
-                  right: 0;
-                  text-align: center;
-                  font-size: 14px;
-                  color: #333;
-                }
-                
-                .device-frame {
-                  position: relative;
-                  border-radius: ${frameRadius};
-                  background: ${frameColor};
-                  padding: ${framePadding};
-                  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-                  overflow: hidden;
-                }
-                
-                /* Notch */
-                .device-frame:before {
-                  content: '';
-                  position: absolute;
-                  top: ${notchTop};
-                  left: ${notchLeft};
-                  transform: ${notchTransform};
-                  width: ${notchWidth};
-                  height: ${notchHeight};
-                  background: #333;
-                  border-radius: 4px;
-                  z-index: 2;
-                }
-                
-                /* Home button */
-                .device-frame:after {
-                  content: '';
-                  position: absolute;
-                  bottom: ${homeBottom};
-                  right: ${homeRight};
-                  transform: ${homeTransform};
-                  width: ${homeWidth};
-                  height: ${homeHeight};
-                  background: #333;
-                  border-radius: 50%;
-                  z-index: 2;
-                }
-                
-                iframe {
-                  border: none;
-                  width: ${width}px;
-                  height: ${height}px;
-                  background: white;
-                  display: block;
-                }
-              </style>
-            </head>
-            <body>
-              <div class="device-container">
-                <div class="device-name">${size.name} ${isLandscape ? '(Landscape)' : '(Portrait)'}</div>
-                <div class="device-frame">
-                  <iframe src="${previewUrl}" sandbox="allow-scripts allow-forms allow-popups allow-modals allow-storage-access-by-user-activation allow-same-origin" allow="cross-origin-isolated"></iframe>
-                </div>
-              </div>
-            </body>
-            </html>
-          `;
-
-          // Write the HTML content to the new window
-          newWindow.document.open();
-          newWindow.document.write(htmlContent);
-          newWindow.document.close();
+            <!DOCTYPE html><html><head><meta charset="utf-8"><title>${size.name} Preview</title><style>
+            body { margin:0;padding:0;display:flex;justify-content:center;align-items:center;height:100vh;background:#f0f0f0;overflow:hidden;font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+            .device-container{position:relative;} .device-name{position:absolute;top:-30px;left:0;right:0;text-align:center;font-size:14px;color:#333;}
+            .device-frame{position:relative;border-radius:${frameRadius};background:${frameColor};padding:${framePadding};box-shadow:0 10px 30px rgba(0,0,0,0.2);overflow:hidden;}
+            .device-frame:before{content:'';position:absolute;top:${notchTop};left:${notchLeft};transform:${notchTransform};width:${notchWidth};height:${notchHeight};background:#333;border-radius:4px;z-index:2;}
+            .device-frame:after{content:'';position:absolute;bottom:${homeBottom};right:${homeRight};transform:${homeTransform};width:${homeWidth};height:${homeHeight};background:#333;border-radius:50%;z-index:2;}
+            iframe{border:none;width:${width}px;height:${height}px;background:white;display:block;}
+            </style></head><body><div class="device-container"><div class="device-name">${size.name} ${isLandscape ? '(Landscape)' : '(Portrait)'}</div>
+            <div class="device-frame"><iframe src="${previewUrl}" sandbox="allow-scripts allow-forms allow-popups allow-modals allow-storage-access-by-user-activation allow-same-origin" allow="cross-origin-isolated"></iframe>
+            </div></div></body></html>`;
+          newWindow.document.open(); newWindow.document.write(htmlContent); newWindow.document.close();
         } else {
-          // Standard window without frame
-          const newWindow = window.open(
-            previewUrl,
-            '_blank',
-            `width=${width},height=${height},menubar=no,toolbar=no,location=no,status=no`,
-          );
-
-          if (newWindow) {
-            newWindow.focus();
-          }
+          const newWindow = window.open(previewUrl, '_blank', `width=${width},height=${height},menubar=no,toolbar=no,location=no,status=no`);
+          if (newWindow) newWindow.focus();
         }
       } else {
         console.warn('[Preview] Invalid WebContainer URL:', activePreview.baseUrl);
@@ -551,114 +312,121 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
 
   const openInNewTab = () => {
     if (activePreview?.baseUrl) {
-      window.open(activePreview?.baseUrl, '_blank');
+        let fullUrl = activePreview.baseUrl;
+        if(displayPath && displayPath !== '/') {
+            fullUrl += displayPath.startsWith('/') ? displayPath : `/${displayPath}`;
+        }
+      window.open(fullUrl, '_blank');
     }
   };
 
-  // Function to get the correct frame padding based on orientation
   const getFramePadding = useCallback(() => {
-    if (!selectedWindowSize) {
-      return '40px 20px';
-    }
-
+    if (!selectedWindowSize) return '40px 20px';
     const isMobile = selectedWindowSize.frameType === 'mobile';
-
-    if (isLandscape) {
-      // Increase horizontal padding in landscape mode to ensure full device frame is visible
-      return isMobile ? '40px 60px' : '30px 50px';
-    }
-
-    return isMobile ? '40px 20px' : '50px 30px';
+    return isLandscape ? (isMobile ? '40px 60px' : '30px 50px') : (isMobile ? '40px 20px' : '50px 30px');
   }, [isLandscape, selectedWindowSize]);
 
-  // Function to get the scale factor for the device frame
-  const getDeviceScale = useCallback(() => {
-    // Always return 1 to ensure the device frame is shown at its exact size
-    return 1;
-  }, [isLandscape, selectedWindowSize, widthPercent]);
-
-  // Update the device scale when needed
-  useEffect(() => {
-    /*
-     * Intentionally disabled - we want to maintain scale of 1
-     * No dynamic scaling to ensure device frame matches external window exactly
-     */
-    // Intentionally empty cleanup function - no cleanup needed
-    return () => {
-      // No cleanup needed
-    };
-  }, [isDeviceModeOn, showDeviceFrameInPreview, getDeviceScale, isLandscape, selectedWindowSize]);
-
-  // Function to get the frame color based on dark mode
-  const getFrameColor = useCallback(() => {
-    // Check if the document has a dark class or data-theme="dark"
-    const isDarkMode =
-      document.documentElement.classList.contains('dark') ||
-      document.documentElement.getAttribute('data-theme') === 'dark' ||
-      window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-    // Return a darker color for light mode, lighter color for dark mode
-    return isDarkMode ? '#555' : '#111';
-  }, []);
-
-  // Effect to handle color scheme changes
   useEffect(() => {
     const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-
-    const handleColorSchemeChange = () => {
-      // Force a re-render when color scheme changes
-      if (showDeviceFrameInPreview) {
-        setShowDeviceFrameInPreview(true);
-      }
-    };
-
+    const handleColorSchemeChange = () => { if (showDeviceFrameInPreview) setShowDeviceFrameInPreview(true); };
     darkModeMediaQuery.addEventListener('change', handleColorSchemeChange);
-
-    return () => {
-      darkModeMediaQuery.removeEventListener('change', handleColorSchemeChange);
-    };
+    return () => darkModeMediaQuery.removeEventListener('change', handleColorSchemeChange);
   }, [showDeviceFrameInPreview]);
 
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data.type === 'INSPECTOR_READY') {
-        if (iframeRef.current?.contentWindow) {
-          iframeRef.current.contentWindow.postMessage(
-            {
-              type: 'INSPECTOR_ACTIVATE',
-              active: isInspectorMode,
-            },
-            '*',
-          );
+  // --- AJOUT: Fonction pour rendre l'iframe ---
+  const renderIframe = (isDeviceFramed: boolean) => {
+    const iframeElement = (
+      <iframe
+        ref={iframeRef}
+        title="preview"
+        style={
+          isDeviceFramed
+            ? {
+                border: 'none',
+                width: isLandscape ? `${selectedWindowSize.height}px` : `${selectedWindowSize.width}px`,
+                height: isLandscape ? `${selectedWindowSize.width}px` : `${selectedWindowSize.height}px`,
+                background: 'white',
+                display: 'block',
+              }
+            : {
+                /* Style pour l'iframe responsive est géré par className */
+              }
         }
-      } else if (event.data.type === 'INSPECTOR_CLICK') {
-        const element = event.data.elementInfo;
+        className={!isDeviceFramed ? "border-none w-full h-full bg-bolt-elements-background-depth-1" : ""}
+        src={iframeUrl}
+        sandbox="allow-scripts allow-forms allow-popups allow-modals allow-storage-access-by-user-activation allow-same-origin"
+        allow={
+          isDeviceFramed
+            ? "cross-origin-isolated"
+            : "geolocation; ch-ua-full-version-list; cross-origin-isolated; screen-wake-lock; publickey-credentials-get; shared-storage-select-url; ch-ua-arch; bluetooth; compute-pressure; ch-prefers-reduced-transparency; deferred-fetch; usb; ch-save-data; publickey-credentials-create; shared-storage; deferred-fetch-minimal; run-ad-auction; ch-ua-form-factors; ch-downlink; otp-credentials; payment; ch-ua; ch-ua-model; ch-ect; autoplay; camera; private-state-token-issuance; accelerometer; ch-ua-platform-version; idle-detection; private-aggregation; interest-cohort; ch-viewport-height; local-fonts; ch-ua-platform; midi; ch-ua-full-version; xr-spatial-tracking; clipboard-read; gamepad; display-capture; keyboard-map; join-ad-interest-group; ch-width; ch-prefers-reduced-motion; browsing-topics; encrypted-media; gyroscope; serial; ch-rtt; ch-ua-mobile; window-management; unload; ch-dpr; ch-prefers-color-scheme; ch-ua-wow64; attribution-reporting; fullscreen; identity-credentials-get; private-state-token-redemption; hid; ch-ua-bitness; storage-access; sync-xhr; ch-device-memory; ch-viewport-width; picture-in-picture; magnetometer; clipboard-write; microphone"
+        }
+      />
+    );
 
-        navigator.clipboard.writeText(element.displayText).then(() => {
-          setSelectedElement?.(element);
-        });
-      }
-    };
+    if (isExpoTemplate) {
+      return (
+        <div
+          className="expo-iframe-outer-wrapper bg-black"
+          style={{ width: '100%', height: '100%', overflow: 'hidden' }}
+        >
+          <div className=" h-[550px] w-[300px]  top-1 bg-[#000] rounded-[40px] border-[7px] border-[#0A0A0A] relative  ring ring-[#222] shadow-xl">
+          <div className="absolute top-11 -right-[9px] bg-[#111] w-[3px] h-[5px] z-[9999]"></div>
+          <div className="absolute top-11 -right-[9px] bg-[#111] w-[3px] h-[5px] z-[9999]"></div>
+          <div className="absolute top-11 -right-[10px] bg-[#111] w-[3px] h-[5px] z-[9999]"></div>
+          <div className="absolute bottom-12 -right-[10px] bg-[#111] w-[3px] h-[5px] z-[9999]"></div>
+          <div className="absolute bottom-12 -right-[10px] bg-[#111] w-[3px] h-[5px] z-[9999]"></div>
+          <div className="absolute top-11 -left-[10px] bg-[#111] w-[3px] h-[5px] z-[9999]"></div>
+           <div className="absolute bottom-[335px]  -right-[11px] rounded-tr-[5px] rounded-br-[5px] bg-[#222] w-[3px] h-[55px] z-[9999]"></div>
+          <div className="absolute top-28 -left-[11px] rounded-tl-[5px] rounded-bl-[5px] bg-[#222] w-[3px] h-[25px] z-[9999]"></div>
+          <div className="absolute top-40 -left-[11px] rounded-tl-[5px] rounded-bl-[5px] bg-[#222] w-[3px] h-[35px] z-[9999]"></div>
+          <div className="absolute top-52 -left-[11px] rounded-tl-[5px] rounded-bl-[5px] bg-[#222] w-[3px] h-[35px] z-[9999]"></div>
+          <div className="absolute -bottom-[10px] left-[44px]  bg-[#111] w-[4px] h-[4px] z-[9999]"></div>
+          <div className="absolute top-11 -left-[10px] bg-[#111] w-[3px] h-[3px] z-[9999]"></div>
+          <div className="absolute bottom-12 -left-[10px] bg-[#111] w-[3px] h-[5px] z-[9999]"></div>
+          <div className="absolute bottom-12 -left-[10px] bg-[#111] w-[3px] h-[5px] z-[9999]"></div>
+              <div className="absolute top-0 inset-x-0">
+                <div className="absolute top-0 w-full left-0 flex items-center justify-center">
+                <div className="  top-3 relative h-[30px] w-[100px] rounded-[20px] bg-[#0A0A0A] "></div>
+                </div>
+              </div>
+              <div className="relative sr-only">
+                
+                <div className="mr-5 mt-2 flex justify-end space-x-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+                  </svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M17.778 8.222c-4.296-4.296-11.26-4.296-15.556 0A1 1 0 01.808 6.808c5.076-5.077 13.308-5.077 18.384 0a1 1 0 01-1.414 1.414zM14.95 11.05a7 7 0 00-9.9 0 1 1 0 01-1.414-1.414 9 9 0 0112.728 0 1 1 0 01-1.414 1.414zM12.12 13.88a3 3 0 00-4.242 0 1 1 0 01-1.415-1.415 5 5 0 017.072 0 1 1 0 01-1.415 1.415zM9 16a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clip-rule="evenodd" />
+                  </svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+                    <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1v-5a1 1 0 00-.293-.707l-2-2A1 1 0 0015 7h-1z" />
+                  </svg>
+                </div>
+                
+                
+              </div>
+              <div className="rounded-[35px]  w-full h-full">
+              <div className="w-full rounded-[35px] h-full flex items-center  flex-col gap-2">
+              <div className="h-full rounded-[35px] w-full">
+              <div className="h-full w-full p-2">
+              {iframeElement}
+              </div>
+              </div>
+              </div>
+              </div>
 
-    window.addEventListener('message', handleMessage);
-
-    return () => window.removeEventListener('message', handleMessage);
-  }, [isInspectorMode]);
-
-  const toggleInspectorMode = () => {
-    const newInspectorMode = !isInspectorMode;
-    setIsInspectorMode(newInspectorMode);
-
-    if (iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.postMessage(
-        {
-          type: 'INSPECTOR_ACTIVATE',
-          active: newInspectorMode,
-        },
-        '*',
+             
+    
+          </div>
+          
+        </div>
       );
     }
+    return iframeElement;
   };
+  // --- FIN AJOUT ---
+
 
   return (
     <div ref={containerRef} className={`w-full h-full flex flex-col relative`}>
@@ -667,11 +435,12 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
       )}
       <div className="bg-bolt-elements-background-depth-2 p-2 flex items-center gap-2">
         <div className="flex items-center gap-2">
-          <IconButton icon="i-ph:arrow-clockwise" onClick={reloadPreview} />
+          <IconButton icon="i-ph:arrow-clockwise" onClick={reloadPreview} title="Reload Preview"/>
           <IconButton
             icon="i-ph:selection"
             onClick={() => setIsSelectionMode(!isSelectionMode)}
             className={isSelectionMode ? 'bg-bolt-elements-background-depth-3' : ''}
+            title="Toggle Screenshot Selection Mode"
           />
         </div>
 
@@ -690,24 +459,15 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
             className="w-full bg-transparent outline-none"
             type="text"
             value={displayPath}
-            onChange={(event) => {
-              setDisplayPath(event.target.value);
-            }}
+            onChange={(event) => setDisplayPath(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && activePreview) {
                 let targetPath = displayPath.trim();
-
-                if (!targetPath.startsWith('/')) {
-                  targetPath = '/' + targetPath;
-                }
-
+                if (!targetPath.startsWith('/')) targetPath = '/' + targetPath;
                 const fullUrl = activePreview.baseUrl + targetPath;
-                setIframeUrl(fullUrl);
-                setDisplayPath(targetPath);
-
-                if (inputRef.current) {
-                  inputRef.current.blur();
-                }
+                setIframeUrl(fullUrl); // Met à jour l'URL de l'iframe
+                setDisplayPath(targetPath); // Met à jour ce qui est affiché dans l'input
+                if (inputRef.current) inputRef.current.blur();
               }
             }}
             disabled={!activePreview}
@@ -720,11 +480,8 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
             onClick={toggleDeviceMode}
             title={isDeviceModeOn ? 'Switch to Responsive Mode' : 'Switch to Device Mode'}
           />
-
-          {expoUrl && <IconButton icon="i-ph:qr-code" onClick={() => setIsExpoQrModalOpen(true)} title="Show QR" />}
-
+          {expoUrl && <IconButton icon="i-ph:qr-code" onClick={() => setIsExpoQrModalOpen(true)} title="Show Expo QR Code" />}
           <ExpoQrModal open={isExpoQrModalOpen} onClose={() => setIsExpoQrModalOpen(false)} />
-
           {isDeviceModeOn && (
             <>
               <IconButton
@@ -735,31 +492,21 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
               <IconButton
                 icon={showDeviceFrameInPreview ? 'i-ph:device-mobile' : 'i-ph:device-mobile-slash'}
                 onClick={() => setShowDeviceFrameInPreview(!showDeviceFrameInPreview)}
-                title={showDeviceFrameInPreview ? 'Hide Device Frame' : 'Show Device Frame'}
+                title={showDeviceFrameInPreview ? 'Hide Device Frame in Preview' : 'Show Device Frame in Preview'}
               />
             </>
           )}
-          <IconButton
-            icon="i-ph:cursor-click"
-            onClick={toggleInspectorMode}
-            className={
-              isInspectorMode ? 'bg-bolt-elements-background-depth-3 !text-bolt-elements-item-contentAccent' : ''
-            }
-            title={isInspectorMode ? 'Disable Element Inspector' : 'Enable Element Inspector'}
-          />
           <IconButton
             icon={isFullscreen ? 'i-ph:arrows-in' : 'i-ph:arrows-out'}
             onClick={toggleFullscreen}
             title={isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
           />
-
           <div className="flex items-center relative">
             <IconButton
               icon="i-ph:list"
               onClick={() => setIsWindowSizeDropdownOpen(!isWindowSizeDropdownOpen)}
               title="New Window Options"
             />
-
             {isWindowSizeDropdownOpen && (
               <>
                 <div className="fixed inset-0 z-50" onClick={() => setIsWindowSizeDropdownOpen(false)} />
@@ -771,9 +518,7 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
                     <div className="flex flex-col gap-2">
                       <button
                         className={`flex w-full justify-between items-center text-start bg-transparent text-xs text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary`}
-                        onClick={() => {
-                          openInNewTab();
-                        }}
+                        onClick={openInNewTab}
                       >
                         <span>Open in new tab</span>
                         <div className="i-ph:arrow-square-out h-5 w-4" />
@@ -781,29 +526,15 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
                       <button
                         className={`flex w-full justify-between items-center text-start bg-transparent text-xs text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary`}
                         onClick={() => {
-                          if (!activePreview?.baseUrl) {
-                            console.warn('[Preview] No active preview available');
-                            return;
-                          }
-
-                          const match = activePreview.baseUrl.match(
-                            /^https?:\/\/([^.]+)\.local-credentialless\.webcontainer-api\.io/,
-                          );
-
-                          if (!match) {
-                            console.warn('[Preview] Invalid WebContainer URL:', activePreview.baseUrl);
-                            return;
-                          }
-
+                          if (!activePreview?.baseUrl) { console.warn('[Preview] No active preview available'); return; }
+                          const match = activePreview.baseUrl.match(/^https?:\/\/([^.]+)\.local-credentialless\.webcontainer-api\.io/);
+                          if (!match) { console.warn('[Preview] Invalid WebContainer URL:', activePreview.baseUrl); return; }
                           const previewId = match[1];
-                          const previewUrl = `/webcontainer/preview/${previewId}`;
-
-                          // Open in a new window with simple parameters
-                          window.open(
-                            previewUrl,
-                            `preview-${previewId}`,
-                            'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no,resizable=yes',
-                          );
+                          let previewUrl = `/webcontainer/preview/${previewId}`;
+                          if(displayPath && displayPath !== '/') {
+                            previewUrl += displayPath.startsWith('/') ? displayPath : `/${displayPath}`;
+                          }
+                          window.open(previewUrl, `preview-${previewId}`, 'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no,resizable=yes');
                         }}
                       >
                         <span>Open in new window</span>
@@ -812,37 +543,19 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-bolt-elements-textTertiary">Show Device Frame</span>
                         <button
-                          className={`w-10 h-5 rounded-full transition-colors duration-200 ${
-                            showDeviceFrame ? 'bg-[#6D28D9]' : 'bg-gray-300 dark:bg-gray-700'
-                          } relative`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowDeviceFrame(!showDeviceFrame);
-                          }}
+                          className={`w-10 h-5 rounded-full transition-colors duration-200 ${showDeviceFrame ? 'bg-[#6D28D9]' : 'bg-gray-300 dark:bg-gray-700'} relative`}
+                          onClick={(e) => { e.stopPropagation(); setShowDeviceFrame(!showDeviceFrame); }}
                         >
-                          <span
-                            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${
-                              showDeviceFrame ? 'transform translate-x-5' : ''
-                            }`}
-                          />
+                          <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${showDeviceFrame ? 'transform translate-x-5' : ''}`} />
                         </button>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-bolt-elements-textTertiary">Landscape Mode</span>
                         <button
-                          className={`w-10 h-5 rounded-full transition-colors duration-200 ${
-                            isLandscape ? 'bg-[#6D28D9]' : 'bg-gray-300 dark:bg-gray-700'
-                          } relative`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsLandscape(!isLandscape);
-                          }}
+                          className={`w-10 h-5 rounded-full transition-colors duration-200 ${isLandscape ? 'bg-[#6D28D9]' : 'bg-gray-300 dark:bg-gray-700'} relative`}
+                          onClick={(e) => { e.stopPropagation(); setIsLandscape(!isLandscape); }}
                         >
-                          <span
-                            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${
-                              isLandscape ? 'transform translate-x-5' : ''
-                            }`}
-                          />
+                          <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${isLandscape ? 'transform translate-x-5' : ''}`} />
                         </button>
                       </div>
                     </div>
@@ -851,41 +564,19 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
                     <button
                       key={size.name}
                       className="w-full px-4 py-3.5 text-left text-[#111827] dark:text-gray-300 text-sm whitespace-nowrap flex items-center gap-3 group hover:bg-[#F5EEFF] dark:hover:bg-gray-900 bg-white dark:bg-black"
-                      onClick={() => {
-                        setSelectedWindowSize(size);
-                        setIsWindowSizeDropdownOpen(false);
-                        openInNewWindow(size);
-                      }}
+                      onClick={() => { setSelectedWindowSize(size); setIsWindowSizeDropdownOpen(false); openInNewWindow(size); }}
                     >
-                      <div
-                        className={`${size.icon} w-5 h-5 text-[#6B7280] dark:text-gray-400 group-hover:text-[#6D28D9] dark:group-hover:text-[#6D28D9] transition-colors duration-200`}
-                      />
+                      <div className={`${size.icon} w-5 h-5 text-[#6B7280] dark:text-gray-400 group-hover:text-[#6D28D9] dark:group-hover:text-[#6D28D9] transition-colors duration-200`} />
                       <div className="flex-grow flex flex-col">
-                        <span className="font-medium group-hover:text-[#6D28D9] dark:group-hover:text-[#6D28D9] transition-colors duration-200">
-                          {size.name}
-                        </span>
+                        <span className="font-medium group-hover:text-[#6D28D9] dark:group-hover:text-[#6D28D9] transition-colors duration-200">{size.name}</span>
                         <span className="text-xs text-[#6B7280] dark:text-gray-400 group-hover:text-[#6D28D9] dark:group-hover:text-[#6D28D9] transition-colors duration-200">
-                          {isLandscape && (size.frameType === 'mobile' || size.frameType === 'tablet')
-                            ? `${size.height} × ${size.width}`
-                            : `${size.width} × ${size.height}`}
+                          {isLandscape && (size.frameType === 'mobile' || size.frameType === 'tablet') ? `${size.height} × ${size.width}` : `${size.width} × ${size.height}`}
                           {size.hasFrame && showDeviceFrame ? ' (with frame)' : ''}
                         </span>
                       </div>
-                      {selectedWindowSize.name === size.name && (
+                      {selectedWindowSize.name === size.name && ( // Indiquer la taille actuellement sélectionnée pour le "New Window"
                         <div className="text-[#6D28D9] dark:text-[#6D28D9]">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                          </svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                         </div>
                       )}
                     </button>
@@ -902,7 +593,7 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
           style={{
             width: isDeviceModeOn ? (showDeviceFrameInPreview ? '100%' : `${widthPercent}%`) : '100%',
             height: '100%',
-            overflow: 'auto',
+            overflow: isExpoTemplate ? 'visible' : 'auto', // 'visible' pour que le scale ne coupe pas le contenu
             background: 'var(--bolt-elements-background-depth-1)',
             position: 'relative',
             display: 'flex',
@@ -916,15 +607,10 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
                 <div
                   className="device-wrapper"
                   style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    width: '100%',
-                    height: '100%',
-                    padding: '0',
-                    overflow: 'auto',
-                    transition: 'all 0.3s ease',
-                    position: 'relative',
+                    display: 'flex', justifyContent: 'center', alignItems: 'center',
+                    width: '100%', height: '100%', padding: '0',
+                    overflow: isExpoTemplate ? 'visible' : 'auto',
+                    transition: 'all 0.3s ease', position: 'relative',
                   }}
                 >
                   <div
@@ -935,8 +621,8 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
                       background: getFrameColor(),
                       padding: getFramePadding(),
                       boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
-                      overflow: 'hidden',
-                      transform: 'scale(1)',
+                      overflow: 'hidden', // Maintenir hidden pour le frame
+                      transform: 'scale(1)', // Le scale sera appliqué au contenu Expo si besoin
                       transformOrigin: 'center center',
                       transition: 'all 0.3s ease',
                       margin: '40px',
@@ -948,66 +634,22 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
                         : `${selectedWindowSize.height + (selectedWindowSize.frameType === 'mobile' ? 80 : 100)}px`,
                     }}
                   >
-                    {/* Notch - positioned based on orientation */}
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: isLandscape ? '50%' : '20px',
-                        left: isLandscape ? '30px' : '50%',
-                        transform: isLandscape ? 'translateY(-50%)' : 'translateX(-50%)',
-                        width: isLandscape ? '8px' : selectedWindowSize.frameType === 'mobile' ? '60px' : '80px',
-                        height: isLandscape ? (selectedWindowSize.frameType === 'mobile' ? '60px' : '80px') : '8px',
-                        background: '#333',
-                        borderRadius: '4px',
-                        zIndex: 2,
-                      }}
-                    />
-
-                    {/* Home button - positioned based on orientation */}
-                    <div
-                      style={{
-                        position: 'absolute',
-                        bottom: isLandscape ? '50%' : '15px',
-                        right: isLandscape ? '30px' : '50%',
-                        transform: isLandscape ? 'translateY(50%)' : 'translateX(50%)',
-                        width: isLandscape ? '4px' : '40px',
-                        height: isLandscape ? '40px' : '4px',
-                        background: '#333',
-                        borderRadius: '50%',
-                        zIndex: 2,
-                      }}
-                    />
-
-                    <iframe
-                      ref={iframeRef}
-                      title="preview"
-                      style={{
-                        border: 'none',
-                        width: isLandscape ? `${selectedWindowSize.height}px` : `${selectedWindowSize.width}px`,
-                        height: isLandscape ? `${selectedWindowSize.width}px` : `${selectedWindowSize.height}px`,
-                        background: 'white',
-                        display: 'block',
-                      }}
-                      src={iframeUrl}
-                      sandbox="allow-scripts allow-forms allow-popups allow-modals allow-storage-access-by-user-activation allow-same-origin"
-                      allow="cross-origin-isolated"
-                    />
+                    <div style={{ position: 'absolute', top: isLandscape ? '50%' : '20px', left: isLandscape ? '30px' : '50%', transform: isLandscape ? 'translateY(-50%)' : 'translateX(-50%)', width: isLandscape ? '8px' : selectedWindowSize.frameType === 'mobile' ? '60px' : '80px', height: isLandscape ? (selectedWindowSize.frameType === 'mobile' ? '60px' : '80px') : '8px', background: '#333', borderRadius: '4px', zIndex: 2 }} />
+                    <div style={{ position: 'absolute', bottom: isLandscape ? '50%' : '15px', right: isLandscape ? '30px' : '50%', transform: isLandscape ? 'translateY(50%)' : 'translateX(50%)', width: isLandscape ? '4px' : '40px', height: isLandscape ? '40px' : '4px', background: '#333', borderRadius: '50%', zIndex: 2 }} />
+                    {/* --- MODIFICATION --- */}
+                    {renderIframe(true)}
+                    {/* --- FIN MODIFICATION --- */}
                   </div>
                 </div>
               ) : (
-                <iframe
-                  ref={iframeRef}
-                  title="preview"
-                  className="border-none w-full h-full bg-bolt-elements-background-depth-1"
-                  src={iframeUrl}
-                  sandbox="allow-scripts allow-forms allow-popups allow-modals allow-storage-access-by-user-activation allow-same-origin"
-                  allow="geolocation; ch-ua-full-version-list; cross-origin-isolated; screen-wake-lock; publickey-credentials-get; shared-storage-select-url; ch-ua-arch; bluetooth; compute-pressure; ch-prefers-reduced-transparency; deferred-fetch; usb; ch-save-data; publickey-credentials-create; shared-storage; deferred-fetch-minimal; run-ad-auction; ch-ua-form-factors; ch-downlink; otp-credentials; payment; ch-ua; ch-ua-model; ch-ect; autoplay; camera; private-state-token-issuance; accelerometer; ch-ua-platform-version; idle-detection; private-aggregation; interest-cohort; ch-viewport-height; local-fonts; ch-ua-platform; midi; ch-ua-full-version; xr-spatial-tracking; clipboard-read; gamepad; display-capture; keyboard-map; join-ad-interest-group; ch-width; ch-prefers-reduced-motion; browsing-topics; encrypted-media; gyroscope; serial; ch-rtt; ch-ua-mobile; window-management; unload; ch-dpr; ch-prefers-color-scheme; ch-ua-wow64; attribution-reporting; fullscreen; identity-credentials-get; private-state-token-redemption; hid; ch-ua-bitness; storage-access; sync-xhr; ch-device-memory; ch-viewport-width; picture-in-picture; magnetometer; clipboard-write; microphone"
-                />
+                // --- MODIFICATION ---
+                renderIframe(false)
+                // --- FIN MODIFICATION ---
               )}
               <ScreenshotSelector
                 isSelectionMode={isSelectionMode}
                 setIsSelectionMode={setIsSelectionMode}
-                containerRef={iframeRef}
+                containerRef={iframeRef} // iframeRef est toujours correct ici
               />
             </>
           ) : (
@@ -1015,29 +657,11 @@ export const Preview = memo(({ setSelectedElement }: PreviewProps) => {
               No preview available
             </div>
           )}
-
           {isDeviceModeOn && !showDeviceFrameInPreview && (
             <>
-              {/* Width indicator */}
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '-25px',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  background: 'var(--bolt-elements-background-depth-3, rgba(0,0,0,0.7))',
-                  color: 'var(--bolt-elements-textPrimary, white)',
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  pointerEvents: 'none',
-                  opacity: resizingState.current.isResizing ? 1 : 0,
-                  transition: 'opacity 0.3s',
-                }}
-              >
+              <div style={{ position: 'absolute', top: '-25px', left: '50%', transform: 'translateX(-50%)', background: 'var(--bolt-elements-background-depth-3, rgba(0,0,0,0.7))', color: 'var(--bolt-elements-textPrimary, white)', padding: '2px 8px', borderRadius: '4px', fontSize: '12px', pointerEvents: 'none', opacity: resizingState.current.isResizing ? 1 : 0, transition: 'opacity 0.3s' }}>
                 {currentWidth}px
               </div>
-
               <ResizeHandle side="left" />
               <ResizeHandle side="right" />
             </>
