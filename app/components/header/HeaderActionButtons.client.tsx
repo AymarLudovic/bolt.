@@ -12,7 +12,7 @@ import { VercelDeploymentLink } from '~/components/chat/VercelDeploymentLink.cli
 import { useVercelDeploy } from '~/components/deploy/VercelDeploy.client';
 import { useNetlifyDeploy } from '~/components/deploy/NetlifyDeploy.client';
 import { SiNetlify, SiVercel } from 'react-icons/si';
-import { activeConnectionModalAtom, type ProviderType } from '~/lib/stores/connectionModals'; // modalTokenInputAtom et triggerConnectAtom sont utilisés par Netlify/VercelConnection
+import { activeConnectionModalAtom, type ProviderType } from '~/lib/stores/connectionModals';
 import { toast } from 'react-toastify';
 import NetlifyConnection from '../@settings/tabs/connections/NetlifyConnection';
 import VercelConnection from '../@settings/tabs/connections/VercelConnection';
@@ -36,21 +36,20 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
   const { handleNetlifyDeploy } = useNetlifyDeploy();
 
   const activeModal = useStore(activeConnectionModalAtom);
-  const modalContainerRef = useRef<HTMLDivElement>(null); // Pour le clic extérieur
+  const modalContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
       }
-      // Si un composant de connexion est ouvert et qu'on clique à l'extérieur
       if (activeModal && modalContainerRef.current && !modalContainerRef.current.contains(event.target as Node) && event.target !== dropdownRef.current && !dropdownRef.current?.contains(event.target as Node) ) {
         activeConnectionModalAtom.set(null);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [activeModal]); // Dépend de activeModal pour ré-attacher/détacher si nécessaire
+  }, [activeModal]);
 
   const onVercelDeployInternal = async () => {
     setIsDeploying(true);
@@ -72,7 +71,7 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
 
   const openConnectComponent = (provider: ProviderType) => {
     activeConnectionModalAtom.set(provider);
-    setIsDropdownOpen(false); // Ferme le dropdown principal
+    setIsDropdownOpen(false);
   };
 
   const disconnectFromNetlify = () => {
@@ -113,6 +112,8 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
           <div className="absolute right-0 flex flex-col gap-1 z-50 p-1 mt-2 min-w-[15.5rem] bg-white dark:bg-[#1F2023] rounded-[12px] border border-neutral-200 dark:border-neutral-700 shadow-lg">
             {/* Netlify */}
             {!netlifyConn.user ? (
+              // Le bouton "Connect to Netlify" est maintenant masqué (commenté)
+              /* 
               <button
                 onClick={() => openConnectComponent('netlify')}
                 disabled={isDeploying}
@@ -121,6 +122,8 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
                 <SiNetlify size={22} className="text-[#00C7B7]" />
                 <span className="flex-grow text-left">Connect to Netlify</span>
               </button>
+              */
+             null // Ou ne rien afficher ici si non connecté et que le bouton de connexion est masqué
             ) : (
               <Fragment>
                 <button
@@ -180,18 +183,16 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
         )}
       </div>
 
-      {/* Affichage conditionnel des composants de connexion */}
       {activeModal && (
         <div
           className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-[1000]"
-          // Ferme le composant si on clique sur le backdrop
           onClick={(e) => { if (e.target === e.currentTarget) { activeConnectionModalAtom.set(null); } }}
         >
           <div
-            ref={modalContainerRef} // ref pour la gestion du clic extérieur
-            className="bg-white dark:bg-neutral-900 p-5 pt-6 rounded-xl shadow-2xl w-full max-w-lg mx-auto relative transform transition-all duration-300 ease-out" // max-w-lg pour plus d'espace, ajuster si besoin
-            style={{ transform: 'translateY(-20px)', opacity: 1 }} // style initial pour l'animation (peut être géré par des classes CSS de transition)
-            onClick={(e) => e.stopPropagation()} // Empêche la fermeture si on clique à l'intérieur du composant
+            ref={modalContainerRef}
+            className="bg-white dark:bg-neutral-900 p-5 pt-6 rounded-xl shadow-2xl w-full max-w-lg mx-auto relative transform transition-all duration-300 ease-out"
+            style={{ transform: 'translateY(-20px)', opacity: 1 }}
+            onClick={(e) => e.stopPropagation()}
           >
             <button
                 onClick={() => { activeConnectionModalAtom.set(null); }}
@@ -202,17 +203,10 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
             </button>
 
             {activeModal === 'netlify' && (
-              <NetlifyConnection
-                // Les composants NetlifyConnection/VercelConnection
-                // devraient idéalement gérer la fermeture via activeConnectionModalAtom.set(null)
-                // après une connexion réussie ou une annulation interne.
-                // onClose={() => activeConnectionModalAtom.set(null)} // Optionnel si le composant le gère déjà
-              />
+              <NetlifyConnection />
             )}
             {activeModal === 'vercel' && (
-              <VercelConnection
-                // onClose={() => activeConnectionModalAtom.set(null)} // Optionnel
-              />
+              <VercelConnection />
             )}
           </div>
         </div>
