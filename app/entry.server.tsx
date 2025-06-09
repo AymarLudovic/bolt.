@@ -74,7 +74,7 @@ export default async function handleRequest(
   responseHeaders.set('Content-Type', 'text/html'); // Toujours définir Content-Type
 
   // N'appliquer les headers COEP et COOP que si la route n'est pas /onboard
-  if (pathname !== '/onboard') {
+  if (pathname !== '/subscription') {
     responseHeaders.set('Cross-Origin-Embedder-Policy', 'require-corp');
     responseHeaders.set('Cross-Origin-Opener-Policy', 'same-origin');
   }
