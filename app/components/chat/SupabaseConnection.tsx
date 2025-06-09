@@ -71,7 +71,7 @@ export function SupabaseConnection() {
   }, [isConnected, supabaseConn.selectedProjectId, supabaseConn.token, supabaseConn.credentials, fetchProjectApiKeys]);
 
   return (
-    <div className="relative">
+    <div style={{fontFamily: "Funnel Display"}} className="relative">
       <div className="flex bg-[#FAFAFA] dark:bg-gray-800 border border-bolt-elements-borderColor dark:border-gray-700 rounded-[12px] overflow-hidden mr-2 text-sm">
         <CustomButton // Renommé pour éviter conflit si Button est importé d'une lib UI
           active
@@ -102,13 +102,27 @@ export function SupabaseConnection() {
         </CustomButton>
       </div>
 
-      <DialogRoot open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <DialogRoot   open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         {isDialogOpen && (
           <Dialog className="max-w-[520px] p-6 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
             {!isConnected ? (
               <div className="space-y-4">
                 <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  <SiSupabase className="w-5 h-5 text-[#3ECF8E]" />
+                <svg className='h-[16px] w-[16px]' viewBox="0 0 109 113" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M63.7076 110.284C60.8481 113.885 55.0502 111.912 54.9813 107.314L53.9738 40.0625L99.1935 40.0625C107.384 40.0625 111.952 49.5226 106.859 55.9372L63.7076 110.284Z" fill="url(#paint0_linear_supabase_conn)"/>
+<path d="M63.7076 110.284C60.8481 113.885 55.0502 111.912 54.9813 107.314L53.9738 40.0625L99.1935 40.0625C107.384 40.0625 111.952 49.5226 106.859 55.9372L63.7076 110.284Z" fill="url(#paint1_linear_supabase_conn)" fillOpacity="0.2"/>
+<path d="M45.317 2.07103C48.1765 -1.53037 53.9745 0.442937 54.0434 5.041L54.4849 72.2922H9.83113C1.64038 72.2922 -2.92775 62.8321 2.1655 56.4175L45.317 2.07103Z" fill="#3ECF8E"/>
+<defs>
+<linearGradient id="paint0_linear_supabase_conn" x1="53.9738" y1="54.9738" x2="94.1635" y2="71.8293" gradientUnits="userSpaceOnUse">
+<stop stopColor="#249361"/>
+<stop offset="1" stopColor="#3ECF8E"/>
+</linearGradient>
+<linearGradient id="paint1_linear_supabase_conn" x1="36.1558" y1="30.5779" x2="54.4844" y2="65.0804" gradientUnits="userSpaceOnUse">
+<stop/>
+<stop offset="1" stopOpacity="0"/>
+</linearGradient>
+</defs>
+</svg>
                   Connect to Supabase
                 </DialogTitle>
                 <div>
@@ -121,22 +135,23 @@ export function SupabaseConnection() {
                     placeholder="Enter your Supabase access token"
                     className={classNames(
                       'w-full px-3 py-2 rounded-lg text-sm',
-                      'bg-[#F8F8F8] dark:bg-[#1A1A1A]',
-                      'border border-[#E5E5E5] dark:border-[#333333]',
+                      'bg-[#FAFAFA] dark:bg-[#FAFAFA]',
+                      ' border-[#E5E5E5] dark:border-[#333333]',
                       'text-bolt-elements-textPrimary placeholder-bolt-elements-textTertiary',
-                      'focus:outline-none focus:ring-1 focus:ring-[#3ECF8E]',
+                      'outline-none',
                       'disabled:opacity-50',
                     )}
                   />
-                  <div className="mt-2 text-sm text-bolt-elements-textSecondary dark:text-gray-400">
+                  <div className="mt-2 text-sm text-[#888] underline">
                     <a
                       href="https://app.supabase.com/account/tokens"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[#3ECF8E] hover:underline inline-flex items-center gap-1"
+                      className="text-[#888] hover:underline inline-flex items-center gap-1"
                     >
+                        <div className="i-ph:globe w-4 h-4" />
                       Get your token
-                      <div className="i-ph:arrow-square-out w-4 h-4" />
+                    
                     </a>
                   </div>
                 </div>
@@ -149,9 +164,9 @@ export function SupabaseConnection() {
                     onClick={handleConnect}
                     disabled={connecting || !supabaseConn.token}
                     className={classNames(
-                      'px-4 py-2 rounded-lg text-sm flex items-center gap-2',
-                      'bg-[#3ECF8E] text-white',
-                      'hover:bg-[#3BBF84]',
+                      'px-4 py-2 w-full rounded-[15px] text-sm flex items-center gap-2',
+                      'bg-[#000] text-[#E4E4E4] justify-center',
+                      'hover:bg-[#0A0A0A]',
                       'disabled:opacity-50 disabled:cursor-not-allowed',
                     )}
                   >
@@ -162,7 +177,7 @@ export function SupabaseConnection() {
                       </>
                     ) : (
                       <>
-                        <div className="i-ph:plug-charging w-4 h-4" />
+                        
                         Connect
                       </>
                     )}
@@ -172,10 +187,10 @@ export function SupabaseConnection() {
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center justify-between mb-2">
-                  <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  <div className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
                     <SiSupabase className="w-5 h-5 text-[#3ECF8E]" />
                     Supabase Connection
-                  </DialogTitle>
+                  </div>
                 </div>
                 <div className="flex items-center gap-4 p-3 bg-[#F8F8F8] dark:bg-[#1A1A1A] rounded-lg">
                   <div>
@@ -216,7 +231,7 @@ export function SupabaseConnection() {
                         </button>
                         <button
                           onClick={() => handleCreateProject()}
-                          className="px-2 py-1 rounded-md text-xs bg-[#3ECF8E] text-white hover:bg-[#3BBF84] flex items-center gap-1"
+                          className="px-2 py-2 rounded-[15px] text-xs w-full bg-black text-[#E4E4E4] hover:bg-[#0A0A0A] justify-center flex items-center gap-1"
                         >
                           <div className="i-ph:plus w-3 h-3" />
                           New Project
@@ -235,7 +250,7 @@ export function SupabaseConnection() {
                             {supabaseConn.stats.projects.map((project) => (
                               <div
                                 key={project.id}
-                                className="block p-3 rounded-lg border border-[#E5E5E5] dark:border-[#1A1A1A] hover:border-[#3ECF8E] dark:hover:border-[#3ECF8E] transition-colors"
+                                className="block p-3 rounded-lg border border-[#EEE] dark:border-[#EEE] hover:border-[#EEE] dark:hover:border-[#EEE] transition-colors"
                               >
                                 <div className="flex items-center justify-between">
                                   <div>
@@ -282,13 +297,10 @@ export function SupabaseConnection() {
                 <div className="flex justify-end gap-2 mt-6">
                   <DialogClose asChild>
                     {/* Si DialogButtonProps n'accepte pas className, vous devez le retirer ou modifier DialogButtonProps */}
-                    <DialogButton type="secondary">Close</DialogButton>
+                    <button>close</button>
                   </DialogClose>
                   {/* Si DialogButtonProps n'accepte pas className, vous devez le retirer ou modifier DialogButtonProps */}
-                  <DialogButton type="danger" onClick={handleDisconnect}>
-                    <div className="i-ph:plugs w-4 h-4" />
-                    Disconnect
-                  </DialogButton>
+                  <button onClick={handleDisconnect}> Disconnect</button>
                 </div>
               </div>
             )}
@@ -311,6 +323,7 @@ function CustomButton({ active = false, disabled = false, children, onClick, cla
   return (
     <button
       disabled={disabled}
+      style={{fontFamily: "Funnel Display"}}
       className={classNames(
         'flex items-center p-1.5',
         {
