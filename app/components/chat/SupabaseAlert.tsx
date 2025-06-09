@@ -93,26 +93,41 @@ export function SupabaseChatAlert({ alert, clearAlert, postMessage }: Props) {
   };
 
   return (
-    <AnimatePresence>
+    <AnimatePresence >
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
         transition={{ duration: 0.3 }}
-        className="max-w-chat rounded-lg border-l-2 border-l-[#098F5F] border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2"
+        style={{fontFamily: "Funnel Display"}}
+        className="max-w-chat rounded-lg border-l-2 border border-bolt-elements-borderColor bg-white"
       >
         {/* Header */}
         <div className="p-4 pb-2">
           <div className="flex items-center gap-2">
-            <img height="10" width="18" crossOrigin="anonymous" src="https://cdn.simpleicons.org/supabase" />
-            <h3 className="text-sm font-medium text-[#3DCB8F]">{title}</h3>
+          <svg className='h-[16px] w-[16px]' viewBox="0 0 109 113" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M63.7076 110.284C60.8481 113.885 55.0502 111.912 54.9813 107.314L53.9738 40.0625L99.1935 40.0625C107.384 40.0625 111.952 49.5226 106.859 55.9372L63.7076 110.284Z" fill="url(#paint0_linear_supabase_conn)"/>
+<path d="M63.7076 110.284C60.8481 113.885 55.0502 111.912 54.9813 107.314L53.9738 40.0625L99.1935 40.0625C107.384 40.0625 111.952 49.5226 106.859 55.9372L63.7076 110.284Z" fill="url(#paint1_linear_supabase_conn)" fillOpacity="0.2"/>
+<path d="M45.317 2.07103C48.1765 -1.53037 53.9745 0.442937 54.0434 5.041L54.4849 72.2922H9.83113C1.64038 72.2922 -2.92775 62.8321 2.1655 56.4175L45.317 2.07103Z" fill="#3ECF8E"/>
+<defs>
+<linearGradient id="paint0_linear_supabase_conn" x1="53.9738" y1="54.9738" x2="94.1635" y2="71.8293" gradientUnits="userSpaceOnUse">
+<stop stopColor="#249361"/>
+<stop offset="1" stopColor="#3ECF8E"/>
+</linearGradient>
+<linearGradient id="paint1_linear_supabase_conn" x1="36.1558" y1="30.5779" x2="54.4844" y2="65.0804" gradientUnits="userSpaceOnUse">
+<stop/>
+<stop offset="1" stopOpacity="0"/>
+</linearGradient>
+</defs>
+</svg>
+            <h3 className="text-sm font-medium ">{title}</h3>
           </div>
         </div>
 
         {/* SQL Content */}
         <div className="px-4">
           {!isConnected ? (
-            <div className="p-3 rounded-md bg-bolt-elements-background-depth-3">
+            <div className="p-3 rounded-md bg-[#fafafa]">
               <span className="text-sm text-bolt-elements-textPrimary">
                 You must first connect to Supabase and select a project.
               </span>
@@ -120,7 +135,7 @@ export function SupabaseChatAlert({ alert, clearAlert, postMessage }: Props) {
           ) : (
             <>
               <div
-                className="flex items-center p-2 rounded-md bg-bolt-elements-background-depth-3 cursor-pointer"
+                className="flex items-center p-2 rounded-[12px] bg-[#FFF] border border-[#EEE] cursor-pointer"
                 onClick={() => setIsCollapsed(!isCollapsed)}
               >
                 <div className="i-ph:database text-bolt-elements-textPrimary mr-2"></div>
@@ -133,7 +148,8 @@ export function SupabaseChatAlert({ alert, clearAlert, postMessage }: Props) {
               </div>
 
               {!isCollapsed && content && (
-                <div className="mt-2 p-3 bg-bolt-elements-background-depth-4 rounded-md overflow-auto max-h-60 font-mono text-xs text-bolt-elements-textSecondary">
+                <div className="mt-2 p-3 bg-white border border-[#EEE] rounded-[12px] overflow-auto max-h-60 font-mono text-xs">
+                  
                   <pre>{cleanSqlContent(content)}</pre>
                 </div>
               )}
@@ -150,9 +166,9 @@ export function SupabaseChatAlert({ alert, clearAlert, postMessage }: Props) {
               <button
                 onClick={handleConnectClick}
                 className={classNames(
-                  `px-3 py-2 rounded-md text-sm font-medium`,
-                  'bg-[#098F5F]',
-                  'hover:bg-[#0aa06c]',
+                  `px-3 py-2 w-full rounded-md text-sm font-medium`,
+                  'bg-[#000]',
+                  'hover:bg-[#000]',
                   'focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500',
                   'text-white',
                   'flex items-center gap-1.5',
@@ -165,11 +181,11 @@ export function SupabaseChatAlert({ alert, clearAlert, postMessage }: Props) {
                 onClick={() => executeSupabaseAction(content)}
                 disabled={isExecuting}
                 className={classNames(
-                  `px-3 py-2 rounded-md text-sm font-medium`,
-                  'bg-[#098F5F]',
+                  `px-3 py-2 rounded-[15px] text-sm font-medium`,
+                  'bg-[#000] w-full',
                   'hover:bg-[#0aa06c]',
                   'focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500',
-                  'text-white',
+                  'text-[#E4E4E4] text-sm justify-center',
                   'flex items-center gap-1.5',
                   isExecuting ? 'opacity-70 cursor-not-allowed' : '',
                 )}
@@ -181,11 +197,11 @@ export function SupabaseChatAlert({ alert, clearAlert, postMessage }: Props) {
               onClick={clearAlert}
               disabled={isExecuting}
               className={classNames(
-                `px-3 py-2 rounded-md text-sm font-medium`,
-                'bg-[#503B26]',
-                'hover:bg-[#774f28]',
+                `px-3 py-2 rounded-[12px] text-sm font-medium`,
+                'bg-[#EEE]',
+                'hover:bg-[#CCC]',
                 'focus:outline-none',
-                'text-[#F79007]',
+                'text-[#000]',
                 isExecuting ? 'opacity-70 cursor-not-allowed' : '',
               )}
             >
