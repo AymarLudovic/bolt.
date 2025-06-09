@@ -166,10 +166,9 @@ export function SupabaseChatAlert({ alert, clearAlert, postMessage }: Props) {
               <button
                 onClick={handleConnectClick}
                 className={classNames(
-                  `px-3 py-2 w-full rounded-md text-sm font-medium`,
+                  `px-3 py-2 w-full rounded-[12px] text-sm font-medium`,
                   'bg-[#000]',
-                  'hover:bg-[#000]',
-                  'focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500',
+                  'hover:bg-[#0A0A0A]',
                   'text-white',
                   'flex items-center gap-1.5',
                 )}
@@ -183,8 +182,7 @@ export function SupabaseChatAlert({ alert, clearAlert, postMessage }: Props) {
                 className={classNames(
                   `px-3 py-2 rounded-[15px] text-sm font-medium`,
                   'bg-[#000] w-full',
-                  'hover:bg-[#0aa06c]',
-                  'focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500',
+                  'hover:bg-[#0A0A0A]',
                   'text-[#E4E4E4] text-sm justify-center',
                   'flex items-center gap-1.5',
                   isExecuting ? 'opacity-70 cursor-not-allowed' : '',
