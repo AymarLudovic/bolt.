@@ -14,8 +14,8 @@ export default function ChatAlert({ alert, clearAlert, postMessage }: Props) {
   const isPreview = source === 'preview';
   const title = isPreview ? 'Preview Error' : 'Terminal Error';
   const message = isPreview
-    ? 'We encountered an error while running the preview. Would you like Bolt to analyze and help resolve this issue?'
-    : 'We encountered an error while running terminal commands. Would you like Bolt to analyze and help resolve this issue?';
+    ? 'Let Studio fix this error'
+    : 'Let Studio fix this error';
 
   return (
     <AnimatePresence>
@@ -24,7 +24,7 @@ export default function ChatAlert({ alert, clearAlert, postMessage }: Props) {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
         transition={{ duration: 0.3 }}
-        className={`rounded-lg border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 p-4 mb-2`}
+        className={`rounded-lg border border-bolt-elements-borderColor  bg-white p-4 mb-2`}
       >
         <div className="flex items-start">
           {/* Icon */}
@@ -34,7 +34,7 @@ export default function ChatAlert({ alert, clearAlert, postMessage }: Props) {
             animate={{ scale: 1 }}
             transition={{ delay: 0.2 }}
           >
-            <div className={`i-ph:warning-duotone text-xl text-bolt-elements-button-danger-text`}></div>
+            <div ></div>
           </motion.div>
           {/* Content */}
           <div className="ml-3 flex-1">
@@ -54,7 +54,7 @@ export default function ChatAlert({ alert, clearAlert, postMessage }: Props) {
             >
               <p>{message}</p>
               {description && (
-                <div className="text-xs text-bolt-elements-textSecondary p-2 bg-bolt-elements-background-depth-3 rounded mt-4 mb-4">
+                <div className="text-xs text-bolt-elements-textSecondary p-2 bg-[#fafafa] rounded mt-4 mb-4">
                   Error: {description}
                 </div>
               )}
@@ -75,16 +75,16 @@ export default function ChatAlert({ alert, clearAlert, postMessage }: Props) {
                     )
                   }
                   className={classNames(
-                    `px-2 py-1.5 rounded-md text-sm font-medium`,
-                    'bg-bolt-elements-button-primary-background',
-                    'hover:bg-bolt-elements-button-primary-backgroundHover',
+                    `px-2 py-2 rounded-[15px] text-sm font-medium`,
+                    'bg-black',
+                    'hover:bg-[#0A0A0A]',
                     'focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-bolt-elements-button-danger-background',
-                    'text-bolt-elements-button-primary-text',
+                    'text-[#E4E4E4] w-full flex items-center justify-center',
                     'flex items-center gap-1.5',
                   )}
                 >
-                  <div className="i-ph:chat-circle-duotone"></div>
-                  Ask Bolt
+                  
+                  Fix error
                 </button>
                 <button
                   onClick={clearAlert}
