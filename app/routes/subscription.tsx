@@ -242,7 +242,7 @@ const Onboard = () => {
                 <button
                     onClick={handleCloseContainer}
                     style={{ border: "1px solid #EEE" }}
-                    className={`bg-[#FAFAFA] absolute top-4 left-6 text-gray-700 p-1 h-[35px] w-[35px] flex items-center justify-center rounded-full mr-2 ${isSubscriptionValid ? '' : 'sr-only'}`}
+                    className={`bg-[#FAFAFA] sr-only top-4 left-6 text-gray-700 p-1 h-[35px] w-[35px] flex items-center justify-center rounded-full mr-2 ${isSubscriptionValid ? '' : 'sr-only'}`}
                 >
                     <X color='#888'></X>
                 </button>
@@ -307,16 +307,34 @@ const Onboard = () => {
                     <div className='h-[90%] flex flex-col gap-2 p-3 w-[90%] lg:w-[40%] md:w-[40%] border border-[#EEE] rounded-[12px]'>
                         <h1 className="text-4xl font-semibold">Apply Discount.</h1>
                         <p className="font-semibold text-1xl text-[#888]"> Apply an discount code to reduce the amount that you will pay on a billing cycle. Pay less and beneficits of all pro features and accessibilities.</p>
-                        <div>
+                        {isSubscriptionValid &&(
+                          <>
+                            <div>
                             <input
                                 type="text"
                                 placeholder="Discount Code"
                                 value={discountCode}
                                 onChange={(e) => setDiscountCode(e.target.value)}
-                                className="w-full px-3 py-3 bg-white border-2 border-[#EEE] placeholder:text-black focus-visible:border-[#888] focus-visible:border-4  rounded-[15px]  text-base mb-4"
+                                className="w-full pointer-events-none px-3 py-3 bg-white border-2 border-[#EEE] placeholder:text-black focus-visible:border-[#888] focus-visible:border-4  rounded-[15px]  text-base mb-4"
+                            />
+                        </div>
+                        <button onClick={handleAppyDiscount} className="h-[48px] pointer-events-none max-w-[100%] lg:max-w-[240px] text-[#E4E4E4] rounded-[25px] bg-black flex items-center justify-center py-5 px-8">Apply Code</button>
+                          </>
+                        )}
+                        {!isSubscriptionValid &&(
+                          <>
+                            <div>
+                            <input
+                                type="text"
+                                placeholder="Discount Code"
+                                value={discountCode}
+                                onChange={(e) => setDiscountCode(e.target.value)}
+                                className="w-full  px-3 py-3 bg-white border-2 border-[#EEE] placeholder:text-black focus-visible:border-[#888] focus-visible:border-4  rounded-[15px]  text-base mb-4"
                             />
                         </div>
                         <button onClick={handleAppyDiscount} className="h-[48px] max-w-[100%] lg:max-w-[240px] text-[#E4E4E4] rounded-[25px] bg-black flex items-center justify-center py-5 px-8">Apply Code</button>
+                          </>
+                        )}
                     </div>
                     <div>
     
@@ -398,7 +416,7 @@ const Onboard = () => {
         isSubscriptionValid={isSubscriptionValid}
         setShowPlanContainer={setShowPlanContainer}
         timeLeftString={timeLeftString}
-        className={`${(showPlanContainer || !isSubscriptionValid) ? '' : 'hidden'}`}
+        className=''
     />
 
         
