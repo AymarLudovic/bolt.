@@ -13,6 +13,8 @@ import {
 } from '~/lib/stores/vercel';
 import { activeConnectionModalAtom, modalTokenInputAtom, triggerConnectAtom } from '~/lib/stores/connectionModals';
 
+import { SiVercel } from 'react-icons/si';
+
 export default function VercelConnection() {
   const connection = useStore(vercelConnection);
   const isConnectingGlobal = useStore(vercelIsConnectingStoreGlobal); // État global de connexion
@@ -88,7 +90,7 @@ export default function VercelConnection() {
 
   return (
     <motion.div
-      className="bg-white dark:bg-[#0A0A0A] rounded-lg border border-neutral-200 dark:border-neutral-700/50"
+      className="bg-white dark:bg-[#0A0A0A] rounded-lg  border-neutral-200 dark:border-neutral-700/50"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3 }}
@@ -96,14 +98,7 @@ export default function VercelConnection() {
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img
-              className="w-5 h-5 dark:invert"
-              height="24"
-              width="24"
-              crossOrigin="anonymous"
-              src={`https://cdn.simpleicons.org/vercel/black`}
-              alt="Vercel Logo"
-            />
+            <SiVercel size={22}></SiVercel>
             <h3 className="text-base font-medium text-neutral-800 dark:text-neutral-100">Vercel Connection</h3>
           </div>
         </div>
@@ -120,23 +115,24 @@ export default function VercelConnection() {
                 disabled={isConnectingGlobal}
                 placeholder="Enter your Vercel personal access token"
                 className={classNames(
-                  'w-full px-3 py-2 rounded-md text-sm',
-                  'bg-neutral-100 dark:bg-neutral-800/50',
+                  'w-full px-3 py-2 rounded-[12px] text-sm',
+                  'bg-[#FAFAFA] dark:bg-neutral-800/50',
                   'border border-neutral-300 dark:border-neutral-700',
                   'text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500',
                   'focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400',
                   'disabled:opacity-60',
                 )}
               />
-              <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+              <div className="mt-2 text-xs underline text-neutral-500 dark:text-neutral-400">
                 <a
                   href="https://vercel.com/account/tokens"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+                  className="text-[#888] dark:text-blue-400 hover:underline inline-flex items-center gap-1"
                 >
+                   <div className="i-ph:globe w-3.5 h-3.5" />
                   Get your token
-                  <div className="i-ph:arrow-square-out w-3.5 h-3.5" />
+                 
                 </a>
               </div>
             </div>
@@ -145,7 +141,7 @@ export default function VercelConnection() {
               onClick={handleLocalFormConnect}
               disabled={isConnectingGlobal || !connection.token}
               className={classNames(
-                'px-4 py-2 rounded-lg text-sm flex items-center justify-center gap-2 w-full sm:w-auto', // w-full sur petit écran
+                'px-4 py-2 rounded-[15px] text-sm flex items-center justify-center gap-2 w-full ', // w-full sur petit écran
                 'bg-black text-white',
                 'hover:bg-neutral-800 dark:hover:bg-neutral-700',
                 'disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200',
@@ -159,7 +155,7 @@ export default function VercelConnection() {
                 </>
               ) : (
                 <>
-                  <div className="i-ph:plug-charging w-4 h-4" />
+                 
                   Connect
                 </>
               )}
@@ -172,16 +168,16 @@ export default function VercelConnection() {
                 <button
                   onClick={handleDisconnect}
                   className={classNames(
-                    'px-3 py-1.5 rounded-md text-xs flex items-center gap-1.5', // Taille plus petite pour déconnexion
-                    'bg-red-600 text-white',
+                    'px-3 py-2 rounded-[15px] text-xs flex items-center gap-1.5', // Taille plus petite pour déconnexion
+                    'bg-black text-white',
                     'hover:bg-red-700',
                     'transition-colors'
                   )}
                 >
-                  <div className="i-ph:power w-3.5 h-3.5" />
+                 
                   Disconnect
                 </button>
-                <span className="text-sm text-neutral-600 dark:text-neutral-400 flex items-center gap-1">
+                <span className="text-sm text-neutral-600 dark:text-neutral-400 sr-only items-center gap-1">
                   <div className="i-ph:check-circle w-4 h-4 text-green-500" />
                   Connected to Vercel
                 </span>
@@ -207,12 +203,12 @@ export default function VercelConnection() {
             </div>
 
             {isFetchingStatsGlobal ? (
-              <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
+              <div className="sr-only items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
                 <div className="i-ph:spinner-gap w-4 h-4 animate-spin" />
                 Fetching Vercel projects...
               </div>
             ) : (
-              <div>
+              <div className='sr-only'>
                 <button
                   onClick={() => setIsProjectsExpanded(!isProjectsExpanded)}
                   className="w-full bg-transparent text-left text-sm font-medium text-neutral-700 dark:text-neutral-200 mb-2 flex items-center gap-1.5 py-1"
