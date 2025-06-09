@@ -297,10 +297,10 @@ export function SupabaseConnection() {
                 <div className="flex justify-end gap-2 mt-6">
                   <DialogClose asChild>
                     {/* Si DialogButtonProps n'accepte pas className, vous devez le retirer ou modifier DialogButtonProps */}
-                    <button>close</button>
+                    <button className=' px-4 h-[35px] border border-[#EEE] rounded-[12px] bg-white'>Close</button>
                   </DialogClose>
                   {/* Si DialogButtonProps n'accepte pas className, vous devez le retirer ou modifier DialogButtonProps */}
-                  <button onClick={handleDisconnect}> Disconnect</button>
+                  <button className=' px-4 h-[35px] border border-[#EEE] rounded-[12px] bg-white' onClick={handleDisconnect}> Disconnect</button>
                 </div>
               </div>
             )}
