@@ -21,6 +21,7 @@ interface DialogButtonProps {
 export const DialogButton = memo(({ type, children, onClick, disabled }: DialogButtonProps) => {
   return (
     <button
+    style={{fontFamily: "Funnel Display"}}
       className={classNames(
         'inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors',
         type === 'primary'
@@ -40,6 +41,7 @@ export const DialogButton = memo(({ type, children, onClick, disabled }: DialogB
 export const DialogTitle = memo(({ className, children, ...props }: RadixDialog.DialogTitleProps) => {
   return (
     <RadixDialog.Title
+    style={{fontFamily: "Funnel Display"}}
       className={classNames('text-lg font-medium text-bolt-elements-textPrimary flex items-center gap-2', className)}
       {...props}
     >
@@ -51,6 +53,7 @@ export const DialogTitle = memo(({ className, children, ...props }: RadixDialog.
 export const DialogDescription = memo(({ className, children, ...props }: RadixDialog.DialogDescriptionProps) => {
   return (
     <RadixDialog.Description
+    style={{fontFamily: "Funnel Display"}}
       className={classNames('text-sm text-bolt-elements-textSecondary mt-1', className)}
       {...props}
     >
@@ -102,7 +105,7 @@ interface DialogProps {
 
 export const Dialog = memo(({ children, className, showCloseButton = true, onClose, onBackdrop }: DialogProps) => {
   return (
-    <RadixDialog.Portal>
+    <RadixDialog.Portal >
       <RadixDialog.Overlay asChild>
         <motion.div
           className={classNames('fixed inset-0 z-[9999] bg-white/70 dark:bg-white/80 backdrop-blur-sm')}
@@ -114,7 +117,7 @@ export const Dialog = memo(({ children, className, showCloseButton = true, onClo
           style={{fontFamily:'Funnel Display'}}
         />
       </RadixDialog.Overlay>
-      <RadixDialog.Content asChild>
+      <RadixDialog.Content asChild style={{fontFamily:'Funnel Display'}}>
         <motion.div
           className={classNames(
             'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-950 rounded-lg shadow-xl border border-bolt-elements-borderColor z-[9999] w-[520px] focus:outline-none',
@@ -344,6 +347,7 @@ export function SelectionDialog({
     const item = items[index];
     return (
       <div
+      
         key={item.id}
         className={classNames(
           'flex items-start space-x-3 p-2 rounded-md transition-colors',
@@ -355,6 +359,7 @@ export function SelectionDialog({
           ...style,
           width: '100%',
           boxSizing: 'border-box',
+          fontFamily: 'Funnel Display'
         }}
       >
         <Checkbox
