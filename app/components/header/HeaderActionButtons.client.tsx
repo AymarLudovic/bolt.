@@ -12,8 +12,10 @@ import { VercelDeploymentLink } from '~/components/chat/VercelDeploymentLink.cli
 import { useVercelDeploy } from '~/components/deploy/VercelDeploy.client';
 import { useNetlifyDeploy } from '~/components/deploy/NetlifyDeploy.client';
 import { SiNetlify, SiVercel } from 'react-icons/si';
-import { activeConnectionModalAtom, modalTokenInputAtom, triggerConnectAtom, type ProviderType } from '~/lib/stores/connectionModals';
+import { activeConnectionModalAtom, type ProviderType } from '~/lib/stores/connectionModals'; // modalTokenInputAtom et triggerConnectAtom sont utilisés par Netlify/VercelConnection
 import { toast } from 'react-toastify';
+import NetlifyConnection from '../@settings/tabs/connections/NetlifyConnection';
+import VercelConnection from '../@settings/tabs/connections/VercelConnection';
 
 interface HeaderActionButtonsProps {}
 
@@ -23,7 +25,7 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
   const netlifyConn = useStore(netlifyConnection);
   const vercelConn = useStore(vercelConnection);
   const previews = useStore(workbenchStore.previews);
-  const activePreview = previews.length > 0 ? previews[0] : null; // Prend le premier preview ou null
+  const activePreview = previews.length > 0 ? previews[0] : null;
   const [isDeploying, setIsDeploying] = useState(false);
   const isSmallViewport = useViewport(1024);
   const canHideChat = showWorkbench || !showChat;
@@ -34,22 +36,21 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
   const { handleNetlifyDeploy } = useNetlifyDeploy();
 
   const activeModal = useStore(activeConnectionModalAtom);
-  const modalToken = useStore(modalTokenInputAtom);
-  const modalContainerRef = useRef<HTMLDivElement>(null);
+  const modalContainerRef = useRef<HTMLDivElement>(null); // Pour le clic extérieur
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
       }
+      // Si un composant de connexion est ouvert et qu'on clique à l'extérieur
       if (activeModal && modalContainerRef.current && !modalContainerRef.current.contains(event.target as Node) && event.target !== dropdownRef.current && !dropdownRef.current?.contains(event.target as Node) ) {
         activeConnectionModalAtom.set(null);
-        modalTokenInputAtom.set('');
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [activeModal]);
+  }, [activeModal]); // Dépend de activeModal pour ré-attacher/détacher si nécessaire
 
   const onVercelDeployInternal = async () => {
     setIsDeploying(true);
@@ -69,20 +70,9 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
     }
   };
 
-  const openConnectModal = (provider: ProviderType) => {
-    modalTokenInputAtom.set('');
+  const openConnectComponent = (provider: ProviderType) => {
     activeConnectionModalAtom.set(provider);
-    setIsDropdownOpen(false); // Ferme le dropdown principal en ouvrant le modal
-  };
-
-  const triggerPlatformConnect = () => {
-    if (activeModal && modalToken) {
-      console.log(`HeaderActionButtons: Triggering connect for ${activeModal} with token via modal.`);
-      triggerConnectAtom.set(activeModal);
-      // Le composant de connexion gérera la fermeture du modal et la réinitialisation du token modal si succès/échec.
-    } else if (activeModal && !modalToken) {
-        toast.error(`Please enter a token for ${activeModal}.`);
-    }
+    setIsDropdownOpen(false); // Ferme le dropdown principal
   };
 
   const disconnectFromNetlify = () => {
@@ -100,17 +90,16 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
   };
 
   return (
-    <div className="flex items-center"> {/* Ajout de items-center pour alignement vertical */}
+    <div className="flex items-center">
       <div className="relative" ref={dropdownRef}>
-        <div 
-          style={{border: "1px solid #4B5563"}} // Example border color, adjust as needed
+        <div
+          style={{border: "1px solid #4B5563"}}
           className={classNames(
-            'w-[150px] h-[37px] justify-center flex bg-black text-[#E4E4E4] items-center gap-2 py-1 px-2 rounded-[25px]', 
+            'w-[150px] h-[37px] justify-center flex bg-black text-[#E4E4E4] items-center gap-2 py-1 px-2 rounded-[25px]',
             isDeploying || !activePreview || isStreaming ? 'opacity-60 pointer-events-none' : 'opacity-100 cursor-pointer hover:bg-neutral-800'
           )}
           onClick={(!isDeploying && activePreview && !isStreaming) ? () => setIsDropdownOpen(!isDropdownOpen) : undefined}
         >
-          {/* Remplacer le Button interne par un simple div ou span pour le texte Deploy */}
           <div className={classNames(
               'text-white w-full flex items-center justify-center text-sm',
                isDeploying || !activePreview || isStreaming ? 'opacity-80' : 'opacity-100'
@@ -124,8 +113,8 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
           <div className="absolute right-0 flex flex-col gap-1 z-50 p-1 mt-2 min-w-[15.5rem] bg-white dark:bg-[#1F2023] rounded-[12px] border border-neutral-200 dark:border-neutral-700 shadow-lg">
             {/* Netlify */}
             {!netlifyConn.user ? (
-              <button // Utiliser un <button> standard pour une meilleure accessibilité et gestion du style
-                onClick={() => openConnectModal('netlify')}
+              <button
+                onClick={() => openConnectComponent('netlify')}
                 disabled={isDeploying}
                 className="flex items-center w-full px-3 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 gap-2.5 rounded-md transition-colors"
               >
@@ -158,7 +147,7 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
             {/* Vercel */}
             {!vercelConn.user ? (
               <button
-                onClick={() => openConnectModal('vercel')}
+                onClick={() => openConnectComponent('vercel')}
                 disabled={isDeploying}
                 className="flex items-center w-full px-3 py-2 text-sm text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 gap-2.5 rounded-md transition-colors"
               >
@@ -187,87 +176,49 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
                 </button>
               </Fragment>
             )}
-            {/* Cloudflare button (commenté) */}
           </div>
         )}
       </div>
 
-        {activeModal && (
+      {/* Affichage conditionnel des composants de connexion */}
+      {activeModal && (
+        <div
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-[1000]"
+          // Ferme le composant si on clique sur le backdrop
+          onClick={(e) => { if (e.target === e.currentTarget) { activeConnectionModalAtom.set(null); } }}
+        >
           <div
-            ref={modalContainerRef}
-            className="fixed inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center z-[1000]"
-            onClick={(e) => { if (e.target === e.currentTarget) { activeConnectionModalAtom.set(null); modalTokenInputAtom.set(''); } }}
+            ref={modalContainerRef} // ref pour la gestion du clic extérieur
+            className="bg-white dark:bg-neutral-900 p-5 pt-6 rounded-xl shadow-2xl w-full max-w-lg mx-auto relative transform transition-all duration-300 ease-out" // max-w-lg pour plus d'espace, ajuster si besoin
+            style={{ transform: 'translateY(-20px)', opacity: 1 }} // style initial pour l'animation (peut être géré par des classes CSS de transition)
+            onClick={(e) => e.stopPropagation()} // Empêche la fermeture si on clique à l'intérieur du composant
           >
-            <div
-              className="bg-white dark:bg-neutral-900 p-5 pt-6 rounded-xl shadow-2xl w-full max-w-sm mx-auto relative" // Ajout de relative pour le bouton fermer
-              style={{ transform: 'translateY(-20px)'}}
-              onClick={(e) => e.stopPropagation()}
+            <button
+                onClick={() => { activeConnectionModalAtom.set(null); }}
+                className="absolute top-3 right-3 text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors z-10"
+                aria-label="Close connection panel"
             >
-                <button 
-                    onClick={() => { activeConnectionModalAtom.set(null); modalTokenInputAtom.set(''); }}
-                    className="absolute top-3 right-3 text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors"
-                    aria-label="Close connection modal"
-                >
-                    <div className="i-ph:x-bold w-5 h-5" />
-                </button>
-              <h3 className="text-lg font-semibold mb-4 text-neutral-800 dark:text-neutral-100">
-                Connect to {activeModal === 'netlify' ? 'Netlify' : 'Vercel'}
-              </h3>
-              <input
-                type="password"
-                value={modalToken}
-                onChange={(e) => modalTokenInputAtom.set(e.target.value)}
-                placeholder={`Enter ${activeModal === 'netlify' ? 'Netlify' : 'Vercel'} API Token`}
-                className="w-full p-2.5 border border-black dark:border-black rounded-md mb-4 bg-white dark:bg-black text-black dark:text-black focus:ring-2 focus:ring-black dark:focus:ring-black outline-none placeholder-neutral-400 dark:placeholder-neutral-500"
-                autoFocus
-                onKeyDown={(e) => { if (e.key === 'Enter' && modalToken) triggerPlatformConnect(); }}
-              />
-               <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-4 text-right">
-                    {activeModal === 'netlify' && (
-                        <a
-                            href="https://app.netlify.com/user/applications#personal-access-tokens"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-black dark:text-black hover:underline inline-flex items-center gap-1"
-                        >
-                            Get your Netlify token
-                            <div className="i-ph:arrow-square-out w-3.5 h-3.5" />
-                        </a>
-                    )}
-                    {activeModal === 'vercel' && (
-                        <a
-                            href="https://vercel.com/account/tokens"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-black dark:text-black hover:underline inline-flex items-center gap-1"
-                        >
-                            Get your Vercel token
-                            <div className="i-ph:arrow-square-out w-3.5 h-3.5" />
-                        </a>
-                    )}
-                </div>
-              <div className="flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => { activeConnectionModalAtom.set(null); modalTokenInputAtom.set(''); }}
-                  className="px-4 py-2 text-sm rounded-md bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-300 dark:hover:bg-neutral-600 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={triggerPlatformConnect}
-                  disabled={!modalToken}
-                  className="px-5 py-2 text-sm bg-black text-white rounded-[15px] hover:bg-neutral-800 dark:hover:bg-neutral-700 disabled:opacity-60 transition-colors"
-                >
-                  Connect
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+                <div className="i-ph:x-bold w-5 h-5" />
+            </button>
 
-      <div className="flex border md:hidden not-md:flex border-bolt-elements-borderColor rounded-md overflow-hidden ml-2"> {/* Ajout de ml-2 pour espacement */}
+            {activeModal === 'netlify' && (
+              <NetlifyConnection
+                // Les composants NetlifyConnection/VercelConnection
+                // devraient idéalement gérer la fermeture via activeConnectionModalAtom.set(null)
+                // après une connexion réussie ou une annulation interne.
+                // onClose={() => activeConnectionModalAtom.set(null)} // Optionnel si le composant le gère déjà
+              />
+            )}
+            {activeModal === 'vercel' && (
+              <VercelConnection
+                // onClose={() => activeConnectionModalAtom.set(null)} // Optionnel
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="flex border md:hidden not-md:flex border-bolt-elements-borderColor rounded-md overflow-hidden ml-2">
         <Button
           active={showChat}
           disabled={!canHideChat || isSmallViewport}
@@ -308,7 +259,7 @@ function Button({ active = false, disabled = false, children, onClick, className
   return (
     <button
       className={classNames(
-        'flex items-center p-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 dark:focus-visible:ring-offset-neutral-900', // Amélioration focus
+        'flex items-center p-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 dark:focus-visible:ring-offset-neutral-900',
         {
           'bg-bolt-elements-item-backgroundDefault hover:bg-bolt-elements-item-backgroundActive text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary':
             !active,
@@ -319,7 +270,7 @@ function Button({ active = false, disabled = false, children, onClick, className
         className,
       )}
       onClick={onClick}
-      disabled={disabled} // Assurer que l'attribut disabled est bien appliqué
+      disabled={disabled}
     >
       {children}
     </button>
