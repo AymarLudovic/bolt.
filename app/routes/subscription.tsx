@@ -4,7 +4,7 @@ import { Client, Databases, ID, Query } from 'appwrite';
 import { formatDistanceToNow } from 'date-fns';
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { useNavigate } from '@remix-run/react';
-
+import { SiHeadspace } from 'react-icons/si';
 // Initialiser Appwrite
 const client = new Client();
 client
@@ -23,20 +23,19 @@ const Onboard = () => {
     const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
     const [isSubscriptionValid, setIsSubscriptionValid] = useState<boolean>(false);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
-    const [showPlanContainer, setShowPlanContainer] = useState<boolean>(false); // Mettez à true pour tester directement PlanContainer
+    const [showPlanContainer, setShowPlanContainer] = useState<boolean>(false);
     const navigate = useNavigate();
 
     const databaseId = 'Boodupy-database-2025';
     const collectionId = 'apps-200900';
     const discountCouponCollectionId = 'discounts-coupon-200900';
 
-    const [discountCode, setDiscountCode] = useState(''); // État de Onboard pour le code
+    const [discountCode, setDiscountCode] = useState('');
     const ORIGINAL_PRICE = 10.00;
-    const [discountedPrice, setDiscountedPrice] = useState<number>(ORIGINAL_PRICE); // État de Onboard pour le prix réduit
+    const [discountedPrice, setDiscountedPrice] = useState<number>(ORIGINAL_PRICE);
     const [appliedDiscountInfo, setAppliedDiscountInfo] = useState<any | null>(null);
-    const [discountMessage, setDiscountMessage] = useState<string>(''); // État de Onboard pour le message
+    const [discountMessage, setDiscountMessage] = useState<string>('');
 
-    // Fonction de Onboard pour fermer ET réinitialiser
     const handleCloseContainer = () => {
         setShowPlanContainer(false);
         setDiscountCode('');
@@ -45,7 +44,6 @@ const Onboard = () => {
         setAppliedDiscountInfo(null);
     };
 
-    // Fonction de Onboard pour appliquer la réduction
     const handleApplyDiscount = async () => {
         if (!discountCode.trim()) {
             setDiscountMessage("Veuillez entrer un code de réduction.");
@@ -55,7 +53,7 @@ const Onboard = () => {
             }
             return;
         }
-        setDiscountMessage("Vérification du code...");
+        setDiscountMessage("Checking discount validity...");
         try {
             const response = await databases.listDocuments(
                 databaseId,
@@ -81,7 +79,6 @@ const Onboard = () => {
                     const newPrice = ORIGINAL_PRICE - (ORIGINAL_PRICE * (reductionPercentage / 100));
                     setDiscountedPrice(Math.max(0.01, newPrice));
                     setAppliedDiscountInfo(promo);
-                    // MODIFIÉ : Message plus clair avec le nouveau prix
                     setDiscountMessage(`Discount "${promo.code}" applied ! Reduction of ${reductionPercentage}%. New price : $${newPrice.toFixed(2)}`);
                 }
             } else {
@@ -97,98 +94,80 @@ const Onboard = () => {
         }
     };
 
-    // ... (reste des fonctions de Onboard: checkSubscriptionValidity, fetchSubscription, etc. restent inchangées)
-    const checkSubscriptionValidity = (subscription: any) => {
-        if (subscription && subscription.expirationDate) {
-            const expirationDate = new Date(subscription.expirationDate);
+    const checkSubscriptionValidity = (subscriptionData: any) => { // Renommé pour clarté
+        if (subscriptionData && subscriptionData.expirationDate) {
+            const expirationDate = new Date(subscriptionData.expirationDate);
             const now = new Date();
-    
             if (expirationDate > now) {
-                setIsSubscriptionValid(true); 
+                setIsSubscriptionValid(true);
                 const timeLeft = expirationDate.getTime() - now.getTime();
-                setTimeRemaining(timeLeft); 
+                setTimeRemaining(timeLeft);
             } else {
-                setIsSubscriptionValid(false); 
-                setTimeRemaining(0); 
+                setIsSubscriptionValid(false);
+                setTimeRemaining(0);
             }
         } else {
-            setIsSubscriptionValid(false); 
-            setTimeRemaining(0); 
+            setIsSubscriptionValid(false);
+            setTimeRemaining(0);
         }
     };
 
-    const fetchSubscription = async (userId: string) => {
+    const fetchSubscription = async (currentUserId: string) => { // Renommé pour clarté
         try {
             const response = await databases.listDocuments(
                 'Boodupy-database-2025',
                 'subscriptions-200900',
-                [
-                    Query.equal('userId', userId),
-                ]
+                [Query.equal('userId', currentUserId),Query.equal('$id', currentUserId),]
+                
             );
-    
             if (response.documents.length > 0) {
                 const subscriptionData = response.documents[0];
                 setSubscription(subscriptionData);
                 checkSubscriptionValidity(subscriptionData);
             } else {
                 setSubscription(null);
-                setIsSubscriptionValid(false); 
+                setIsSubscriptionValid(false);
             }
-    
         } catch (error) {
             console.error("Erreur lors de la récupération de l'abonnement :", error);
             setError("Erreur lors du chargement de l'abonnement.");
-            setSubscription(null); 
-            setIsSubscriptionValid(false); 
+            setSubscription(null);
+            setIsSubscriptionValid(false);
         }
-    };
-
-    const toggleUserMenu = () => {
-        setIsUserMenuOpen(!isUserMenuOpen);
-    };
-
-    const showSubscriptionDetails = () => {
-        setShowPlanContainer(true); 
-        setIsUserMenuOpen(false);   
     };
 
     useEffect(() => {
         const storedUserId = localStorage.getItem('userId');
         if (storedUserId) {
             setUserId(storedUserId);
-            // fetchUserApps(storedUserId); // Vous pouvez décommenter si nécessaire
-            fetchSubscription(storedUserId); 
+            fetchSubscription(storedUserId);
         } else {
             navigate('/signup');
         }
-        // Pour tester PlanContainer directement :
-        // setShowPlanContainer(true); // Décommentez pour voir PlanContainer au chargement
-    }, [navigate]); 
-
-    const fetchUserApps = async (userId: string) => {
-        try {
-            const response = await databases.listDocuments(
-                databaseId,
-                collectionId,
-                [
-                    Query.equal('userId', userId),
-                ]
-            );
-            setUserApps(response.documents);
-        } catch (err: any) {
-            console.error("Erreur lors de la récupération des applications :", err);
-            setError("Erreur lors du chargement des applications.");
-        }
-    };
+        // Pour tester PlanContainer, vous pouvez le faire s'ouvrir via un bouton ou une condition
+        // Par exemple, vous pourriez avoir un bouton dans votre UI qui appelle:
+        // const openPlanModal = () => setShowPlanContainer(true);
+    }, [navigate]);
+    
+    // Fonctions non utilisées dans le JSX minimal fourni mais potentiellement utiles
+    const toggleUserMenu = () => setIsUserMenuOpen(!isUserMenuOpen);
+    const showSubscriptionDetails = () => { setShowPlanContainer(true); setIsUserMenuOpen(false); };
+    const fetchUserApps = async (currentUserId: string) => { /* ... */ };
     const handleCreateAppClick = () => { setIsModalOpen(true); };
     const handleCloseModal = () => { setIsModalOpen(false); setAppName(''); setError(''); };
     const handleCreateApp = async () => { /* ... */ };
     const handleLogout = () => { /* ... */ };
-    
 
 
-    const PlanContainer = ({ userId, subscription, fetchSubscription, isSubscriptionValid, setShowPlanContainer, timeLeftString, className }: {
+    const PlanContainer = ({
+        userId: propUserId, // Renommé pour éviter la confusion avec l'état userId de Onboard dans cette portée
+        subscription: propSubscription, // Renommé
+        fetchSubscription: propFetchSubscription, // Renommé
+        isSubscriptionValid: propIsSubscriptionValid, // Renommé
+        setShowPlanContainer: propSetShowPlanContainer, // Renommé
+        timeLeftString,
+        className
+    }: {
         userId: string | null;
         subscription: any;
         fetchSubscription: (userId: string) => Promise<void>,
@@ -197,40 +176,42 @@ const Onboard = () => {
         timeLeftString: string
         className: string
     }) => {
-        const [sdkReady, setSdkReady] = useState(false);
-        // const [discountCode, setDiscountCode] = useState(''); // SUPPRIMÉ - On utilise celui de Onboard
-
-        // SUPPRIMÉ - La fonction locale handleCloseContainer n'est plus nécessaire si le bouton X appelle celle de Onboard
-        // const handleCloseContainer = () => {
-        //     setShowPlanContainer(false); 
-        // }
-
-        // SUPPRIMÉ - La fonction locale handleAppyDiscount n'est plus nécessaire
-        // const handleAppyDiscount = () => {
-        // }
+        // Les états `discountCode`, `discountedPrice`, `discountMessage`, `appliedDiscountInfo`
+        // et les fonctions `handleApplyDiscount`, `handleCloseContainer`
+        // sont accessibles directement depuis le scope de `Onboard`
 
         const initialOptions = {
-            clientId: "AfUVt7FlKnS-R6INQXaNCKVgZM2VrHj6r9-gP2vG_bg-PrgJ5olkVJfeoP6NZW5w3bn4oHLf8EsRVqze",
+            clientId: "AVrI1_PndcFEeGuj8PH9qyOQofIy0_MaSNaOZwstDJQZWW6bhc-CRnEcpAqi6fzonlA2pjo-9W-bBG5H",
             currency: "USD",
             intent: "capture",
         };
 
-        const updateSubscription = async (userIdToUpdate: string) => { // Renommé userId pour éviter conflit avec prop
+        // CORRIGÉ : updateSubscription
+        const updateSubscription = async (userIdToUpdate: string) => {
+            // L'ID du document d'abonnement est propSubscription.$id
+            if (!propSubscription || !propSubscription.$id) {
+                console.error('Impossible de mettre à jour l\'abonnement : propSubscription.$id manquant.');
+                setError("Erreur: ID d'abonnement manquant pour la mise à jour.");
+                return;
+            }
+
             try {
+                console.log('subscription', subscription.$id )
                 const newExpirationDate = new Date();
                 newExpirationDate.setDate(newExpirationDate.getDate() + 30);
                 const updateData = {
                     subscriptionType: 'plan',
                     expirationDate: newExpirationDate.toISOString()
                 };
-                if (subscription && subscription.$id) { // Vérifie que subscription et son ID existent
-                    await databases.updateDocument('Boodupy-database-2025', 'subscriptions-200900', subscription.$id, updateData);
-                    console.log('Abonnement mis à jour avec succès dans Appwrite.');
-                    fetchSubscription(userIdToUpdate);
-                } else {
-                    console.error('Impossible de mettre à jour l\'abonnement : subscription.$id manquant.');
-                    setError("Erreur: ID d'abonnement manquant pour la mise à jour.");
-                }
+
+                await databases.updateDocument(
+                    'Boodupy-database-2025',      // databaseId
+                    'subscriptions-200900',      // collectionId
+                    subscription.$id,        // documentId (ID de l'abonnement)
+                    updateData                   // data
+                );
+                console.log('Abonnement mis à jour avec succès dans Appwrite.');
+                propFetchSubscription(userIdToUpdate); // Rafraîchir l'abonnement de l'utilisateur
             } catch (error) {
                 console.error('Erreur lors de la mise à jour de l\'abonnement dans Appwrite :', error);
                 setError("Erreur lors de la mise à jour de l'abonnement.");
@@ -238,120 +219,121 @@ const Onboard = () => {
         };
 
         return (
-            <div className={`fixed bottom-0 h-full left-0 right-0 z-[9999] w-full ${className}`}>
-                <div className="absolute flex-col overflow-y-auto md:flex-row lg:flex-row bottom-0 bg-white h-[80%] md:h-[60%] lg:h-[60%] rounded-t-[15px] p-2 w-full border-t flex items-center justify-center gap-3 border-[#EEE]">
-                    <button
-                        onClick={handleCloseContainer} // MODIFIÉ : Appelle handleCloseContainer de Onboard
-                        style={{ border: "1px solid #EEE" }}
-                        // MODIFIÉ : Retiré sr-only conditionnel, la visibilité est gérée par showPlanContainer
-                        className={`bg-[#FAFAFA] absolute top-4 left-6 text-gray-700 p-1 h-[35px] w-[35px] flex items-center justify-center rounded-full mr-2`}
-                    >
-                        <X color='#888'></X>
-                    </button>
-                    <div className='h-[90%] flex flex-col gap-2 p-3 w-[90%] lg:w-[40%] md:w-[40%] border border-[#EEE] rounded-[20px]'>
+            <div className={`fixed bottom-0  h-full left-0 right-0 z-[9999] w-full ${className}`}>
+                <div className='fixed top-12 left-[12%] lg:left-[48%]'>
+                    <div className="flex items-center gap-1">
+                    <SiHeadspace size={18}></SiHeadspace>
+                    <span className='font-semibold text-3xl'>Studio</span>
+                    </div>
+                </div>
+                <div className="absolute  flex-col  overflow-y-auto md:flex-row lg:flex-row bottom-0 bg-white h-[80%] md:h-[60%] lg:h-[60%] rounded-t-[15px] p-2 w-full lg:border-t flex items-center justify-center gap-3 border-[#EEE]">
+                   
+                    
+                    {/* Colonne Infos Plan */}
+                    <div className='h-[90%]  flex flex-col gap-2 p-3 w-[90%] lg:w-[40%] md:w-[40%] border border-[#EEE] rounded-[20px]'>
                         <div className="flex items-center gap-2">
-                            <h2 className=" text-3xl">Pro</h2>
-                            <div className="py-1 px-2 rounded-[12px] select-none text-white bg-blue-600 text-sm h-[30px] flex items-center justify-center">upgrade</div>
+                            <h2 className="text-2xl md:text-3xl">Pro</h2>
+                            <div className="py-1 px-2 rounded-[12px] select-none text-white bg-blue-600 text-xs md:text-sm h-[26px] md:h-[30px] flex items-center justify-center">upgrade</div>
                         </div>
-                        {/* MODIFIÉ : Affichage du prix dynamique */}
-                        <div className="flex items-center gap-2">
-                            <h2 className="text-5xl font-semibold">
+                        <div className="flex items-baseline gap-2"> {/* items-baseline pour aligner prix et /month */}
+                            <h2 className="text-4xl md:text-5xl font-semibold">
                                 ${discountedPrice.toFixed(2)}
                             </h2>
                             {discountedPrice < ORIGINAL_PRICE && (
-                                <span className="text-xl line-through text-gray-500">${ORIGINAL_PRICE.toFixed(2)}</span>
+                                <span className="text-lg md:text-xl line-through text-gray-500">${ORIGINAL_PRICE.toFixed(2)}</span>
                             )}
-                            <p className='font-medium'>/month</p>
+                            <p className='font-medium text-sm md:text-base'>/month</p>
                         </div>
-                        <ul className="flex flex-col">
-                            {/* ... vos li items ... */}
-                            <li className='flex text-compact gap-x-2 py-2 items-center gap-[2px]'>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none" className="pointer-events-none size-20 shrink-2 h-[24px] w-[24px]" data-sentry-element="svg" data-sentry-component="UnlockedIcon" data-sentry-source-file="UnlockedIcon.tsx"><path d="M10 11V15" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke" ></path><path d="M16 8H4V15L7 18H13L16 15V8Z" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke"></path><path d="M7 8V4C7 2.34315 8.34315 1 10 1V1C11.6569 1 13 2.34315 13 4V4.5" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke"></path></svg>
-                                <p className="font-semibold relative top-[1px] ">Build unlimited apps and websites</p>
+                        <ul className="flex flex-col gap-1 text-sm md:text-base">
+                            <li className='flex items-center gap-x-2 py-1'>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none" className="shrink-0 h-[20px] w-[20px]"><path d="M10 11V15" stroke="currentColor" strokeWidth="1.5"></path><path d="M16 8H4V15L7 18H13L16 15V8Z" stroke="currentColor" strokeWidth="1.5"></path><path d="M7 8V4C7 2.34315 8.34315 1 10 1V1C11.6569 1 13 2.34315 13 4V4.5" stroke="currentColor" strokeWidth="1.5"></path></svg>
+                                <p className="font-medium">Build unlimited apps and websites</p>
                             </li>
-                            <li className='flex text-compact gap-x-2 py-2 items-center gap-[2px]'>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none" className="pointer-events-none size-20 shrink-2 h-[24px] w-[24px]" data-sentry-element="svg" data-sentry-component="FlowIcon" data-sentry-source-file="FlowIcon.tsx"><title>flow icon</title><path d="M4 17C5.65685 17 7 15.6569 7 14C7 12.3431 5.65685 11 4 11C2.34315 11 1 14C1 15.6569 2.34315 17 4 17Z" fill="currentColor"></path><path d="M13 3H16H19V6V9H16H13V6V3Z" fill="currentColor"></path><path d="M4 9V7C4 5.34315 5.34315 4 7 4C8.65685 4 10 5.34315 10 7V13C10 14.6569 11.3431 16 13 16C14.6569 16 16 14.6569 16 13V11" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke" ></path></svg>
-                                <p className="font-semibold relative top-[1px] ">No messages or tokens limits</p>
+                            <li className='flex items-center gap-x-2 py-1'>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none" className="shrink-0 h-[20px] w-[20px]"><title>flow icon</title><path d="M4 17C5.65685 17 7 15.6569 7 14C7 12.3431 5.65685 11 4 11C2.34315 11 1 14C1 15.6569 2.34315 17 4 17Z" fill="currentColor"></path><path d="M13 3H16H19V6V9H16H13V6V3Z" fill="currentColor"></path><path d="M4 9V7C4 5.34315 5.34315 4 7 4C8.65685 4 10 5.34315 10 7V13C10 14.6569 11.3431 16 13 16C14.6569 16 16 14.6569 16 13V11" stroke="currentColor" strokeWidth="1.5"></path></svg>
+                                <p className="font-medium">No messages or tokens limits</p>
                             </li>
-                            <li className='flex text-compact gap-x-2 py-2 items-center gap-[2px]'>
-                                <Globe></Globe>
-                                <p className="font-semibold relative top-[1px] ">Fast deploy online.</p>
+                            <li className='flex items-center gap-x-2 py-1'>
+                                <Globe size={20} className="shrink-0"/>
+                                <p className="font-medium">Fast deploy online.</p>
                             </li>
                         </ul>
-                        {isSubscriptionValid ? (
-                            <button style={{ border: "1px solid #eee" }} className="h-[38px] max-w-[240px] opacity-[0.6] pointer-events-none rounded-[15px] bg-white flex items-center justify-center py-5 px-8">pay soon in {timeLeftString}</button>
-                        ) : (
-                            userId && <PayPalScriptProvider options={initialOptions}> {/* AJOUTÉ: Vérifie userId avant de rendre PayPal */}
-                                <PayPalButtons
-                                    style={{ layout: "vertical" }}
-                                    createOrder={(data, actions) => {
-                                        return actions.order.create({
-                                            intent: 'CAPTURE',
-                                            purchase_units: [{
-                                                amount: {
-                                                    currency_code: "USD",
-                                                    value: discountedPrice.toFixed(2), // MODIFIÉ
-                                                },
-                                            }],
-                                        });
-                                    }}
-                                    onApprove={async (data, actions) => {
-                                        const details = await actions.order?.capture();
-                                        if (details) {
-                                            alert("Transaction completed by " + details.payer?.name?.given_name);
-                                            if (userId) { // userId est déjà vérifié avant de rendre PayPalButtons
-                                                updateSubscription(userId);
-                                            }
-                                        } else {
-                                            console.error("La capture de l'ordre a échoué.");
-                                            setError("La transaction PayPal a échoué.");
-                                        }
-                                    }}
-                                    onError={(err) => {
-                                        console.error("PayPal Error:", err);
-                                        setError("Une erreur est survenue avec PayPal. Veuillez réessayer.");
-                                    }}
-                                />
-                            </PayPalScriptProvider>
-                        )}
+                        <div className="mt-auto"> {/* Pousse PayPal en bas */}
+                            {isSubscriptionValid ? (
+                                <button style={{ border: "1px solid #eee" }} className="w-full h-[40px] md:h-[48px] max-w-[300px] opacity-[0.6] pointer-events-none rounded-[15px] bg-white flex items-center justify-center text-sm md:text-base">Subscribed (renews {timeLeftString})</button>
+                            ) : (
+                                propUserId && (
+                                    <PayPalScriptProvider options={initialOptions}>
+                                        <PayPalButtons
+                                            style={{ layout: "vertical", height: 48 }}
+                                            createOrder={(data, actions) => {
+                                                return actions.order.create({
+                                                    intent: 'CAPTURE',
+                                                    purchase_units: [{
+                                                        amount: {
+                                                            currency_code: "USD",
+                                                            value: discountedPrice.toFixed(2),
+                                                        },
+                                                    }],
+                                                });
+                                            }}
+                                            onApprove={async (data, actions) => {
+                                                const details = await actions.order?.capture();
+                                                if (details) {
+                                                    alert("Transaction completed by " + details.payer?.name?.given_name);
+                                                    if (propUserId) {
+                                                        updateSubscription(propUserId);
+                                                    }
+                                                } else {
+                                                    console.error("La capture de l'ordre a échoué.");
+                                                    setError("La transaction PayPal a échoué.");
+                                                }
+                                            }}
+                                            onError={(err) => {
+                                                console.error("PayPal Error:", err);
+                                                setError("Une erreur est survenue avec PayPal. Veuillez réessayer.");
+                                            }}
+                                        />
+                                    </PayPalScriptProvider>
+                                )
+                            )}
+                        </div>
                     </div>
-                    <div className='h-[90%] flex flex-col gap-2 p-3 w-[90%] lg:w-[40%] md:w-[40%] border border-[#EEE] rounded-[12px]'>
-                        <h1 className="text-4xl font-semibold">Apply Discount.</h1>
-                        <p className="font-semibold text-1xl text-[#888]"> Apply a discount code to reduce the amount that you will pay on a billing cycle. Pay less and beneficits of all pro features and accessibilities.</p>
-                        
-                        {/* Section du code de réduction, toujours affichée si PlanContainer est visible,
-                            mais les intéractions sont désactivées si l'abonnement est déjà valide. */}
+
+                    {/* Colonne Code Promo */}
+                    <div className='h-[90%]  flex flex-col gap-2 p-3 w-[90%] lg:w-[40%] md:w-[40%] border border-[#EEE] rounded-[20px]'>
+                        <h1 className="text-2xl md:text-3xl font-semibold">Apply Discount.</h1>
+                        <p className="text-sm md:text-base text-[#888]">Apply a discount code to reduce the amount for your next billing cycle.</p>
                         <div>
                             <input
                                 type="text"
                                 placeholder="Discount Code"
-                                value={discountCode} // Utilise discountCode de Onboard
-                                onChange={(e) => setDiscountCode(e.target.value)} // Utilise setDiscountCode de Onboard
-                                className="w-full px-3 py-3 bg-white border-2 border-[#EEE] placeholder:text-black focus-visible:border-[#888] focus-visible:border-4 rounded-[15px] text-base mb-2"
-                                disabled={isSubscriptionValid} // Désactive si abonnement valide
+                                value={discountCode}
+                                onChange={(e) => setDiscountCode(e.target.value)}
+                                className="w-full px-3 py-3 bg-white border-2 border-[#EEE] placeholder:text-gray-500 focus-visible:border-blue-500 rounded-[12px] text-sm md:text-base mb-2"
+                                disabled={propIsSubscriptionValid}
                             />
                         </div>
-                        {/* AJOUTÉ : Affichage du message de réduction */}
                         {discountMessage && (
-                            <p className={`text-sm mb-2 ${appliedDiscountInfo ? 'text-green-600' : 'text-red-600'}`}>
+                            <p className={`text-xs md:text-sm mb-2 ${appliedDiscountInfo ? 'text-green-600' : 'text-[#888]'}`}>
                                 {discountMessage}
                             </p>
                         )}
                         <button
-                            onClick={handleApplyDiscount} // MODIFIÉ : Appelle handleApplyDiscount de Onboard
-                            className={`h-[48px] max-w-[100%] lg:max-w-[240px] text-white rounded-[25px] bg-black flex items-center justify-center py-5 px-8 ${isSubscriptionValid ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            disabled={isSubscriptionValid} // Désactive si abonnement valide
+                            onClick={handleApplyDiscount}
+                            className={`w-full h-[40px] md:h-[48px] max-w-[300px] text-white rounded-[12px] bg-black flex items-center justify-center text-sm md:text-base ${propIsSubscriptionValid ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-800'}`}
+                            disabled={propIsSubscriptionValid}
                         >
                             Apply Code
                         </button>
                     </div>
                 </div>
+                <UpgradeTimer timeRemaining={timeRemaining} isSubscriptionValid={isSubscriptionValid} />
             </div>
         )
     }
 
     const UpgradeTimer = ({ timeRemaining, isSubscriptionValid }: { timeRemaining: number | null, isSubscriptionValid: boolean }) => {
-        // ... (votre code UpgradeTimer reste inchangé)
         if (!isSubscriptionValid || timeRemaining === null || timeRemaining <= 0) {
             return null;
         }
@@ -361,16 +343,16 @@ const Onboard = () => {
         const progress = Math.min(1, timeElapsed / totalTime); 
         return (
             <div className='fixed bottom-5 right-4 p-4 h-auto flex flex-col gap-2 w-[260px] border border-[#EEE] rounded-[15px] bg-white shadow-md'>
-                <div><p className="font-semibold"><span className="text-sm">🚀</span> Your trial ends {timeLeftString}</p></div>
+                <div><p className="font-semibold text-sm"><span className="text-sm">🚀</span> Your trial ends {timeLeftString}</p></div>
                 <div className="flex gap-1 justify-center w-full items-center">
                     {[...Array(4)].map((_, index) => {
                         const barProgress = Math.min(1, Math.max(0, progress * 4 - index));
-                        return (<div key={index} className="h-[5px] w-full rounded-[8px] bg-[#EEE] overflow-hidden">
+                        return (<div key={index} className="h-[5px] flex-1 rounded-[8px] bg-[#EEE] overflow-hidden">
                                 <div className={`h-full bg-black transition-all duration-300 ease-out`} style={{ width: `${barProgress * 100}%` }} />
                             </div>);
                     })}
                 </div>
-                {isSubscriptionValid && <button onClick={() => setShowPlanContainer(true)} className="h-[30px] w-auto text-sm text-white rounded-lg bg-black flex items-center justify-center py-4 px-4 mt-1">Upgrade to Pro</button>}
+                {isSubscriptionValid && <button onClick={() => setShowPlanContainer(true)} className="h-[30px] w-full opacity-[0.6] sr-only pointer-events-none select-none text-xs text-white rounded-lg bg-black flex items-center justify-center py-4 px-4 mt-1">Upgraded to pro</button>}
             </div>
         );
     };
@@ -378,29 +360,18 @@ const Onboard = () => {
     const timeLeftString = timeRemaining !== null ? formatDistanceToNow(new Date(Date.now() + timeRemaining), { addSuffix: true }) : "";
 
     return (
-        <div className='h-screen w-full text-black overflow-hidden' style={{ fontFamily: 'Funnel Display' }} >
-            {/* Vous devez avoir un moyen d'ouvrir PlanContainer, par exemple un bouton dans un menu */}
-            {/* Pour l'instant, il s'affiche si showPlanContainer est true */}
+        <div className='h-screen w-full text-black overflow-y-auto' style={{ fontFamily: 'Funnel Display' }} >
+            {/* Exemple de bouton pour ouvrir PlanContainer */}
             <PlanContainer
                     userId={userId}
                     subscription={subscription}
                     fetchSubscription={fetchSubscription}
                     isSubscriptionValid={isSubscriptionValid}
-                    setShowPlanContainer={setShowPlanContainer} // setShowPlanContainer est toujours passé pour fermer
+                    setShowPlanContainer={setShowPlanContainer}
                     timeLeftString={timeLeftString}
-                    className=''
+                    className='' // La classe 'hidden' sera gérée par le rendu conditionnel
                 />
-            
-            {/* Le reste de votre UI (header, liste d'apps, etc.) */}
-            {/* {!showPlanContainer && ( // Exemple de bouton pour ouvrir PlanContainer si ce n'est pas déjà ouvert
-                 <button 
-                    onClick={() => setShowPlanContainer(true)}
-                    className="fixed bottom-5 left-5 bg-blue-500 text-white p-3 rounded-lg shadow-lg"
-                 >
-                    Show Subscription Plan
-                 </button>
-            )} */}
-             <UpgradeTimer timeRemaining={timeRemaining} isSubscriptionValid={isSubscriptionValid} />
+             
         </div>
     );
 };
