@@ -530,6 +530,10 @@ export const Preview = memo(() => {
       {isExpoTemplate && (
         <div className=" p-2 flex items-center gap-2">
           {/* Barre d'outils supérieure ... */}
+          <div className="flex items-center justify-center bg-[#fafafa] cursor-pointer gap-2 h-[35px] w-[35px] top-2 rounded-[12px] border border-[#EEE] absolute right-8 ">
+          {expoUrl && <IconButton icon="i-ph:qr-code" onClick={() => setIsExpoQrModalOpen(true)} title="Show QR" />}
+          </div>
+          
           <div className="flex items-center justify-center bg-[#fafafa] cursor-pointer gap-2 h-[35px] w-[35px] top-2 rounded-[12px] border border-[#EEE] absolute right-3 ">
             <IconButton icon="i-ph:arrow-clockwise" onClick={reloadPreview} title="Reload Preview"/>
           </div>
