@@ -762,7 +762,7 @@ const UpgradeTimer = ({ timeRemaining, isSubscriptionValid }: { timeRemaining: n
 
                     handleSendMessage?.(event, messageInput);
                   })}
-                {!chatStarted && <StarterTemplates />}
+                
               </div>
             </div>
           </div>
