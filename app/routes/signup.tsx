@@ -52,7 +52,8 @@ const SignupPage: React.FC = () => {
 
             if (!isLoginMode) {
                 const startDate = new Date();
-                const expirationDate = new Date(startDate.getTime() + 2 * 60 * 1000);
+               const expirationDate = new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000);
+
 
                 const subscriptionData = {
                     userId: userId,
