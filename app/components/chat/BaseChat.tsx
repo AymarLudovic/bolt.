@@ -181,7 +181,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
             } else {
                 setIsSubscriptionValid(false); // l'abonnement a expiré
                 setTimeRemaining(0); // Pas de temps restant
-                navigate('/suscription');
+                navigate('/subscription');
             }
         } else {
             setIsSubscriptionValid(false); // Pas d'abonnement ou date d'expiration
